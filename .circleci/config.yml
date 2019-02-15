@@ -1,0 +1,143 @@
+version: 2.1
+
+executors:
+  ubuntu-builder:
+    docker:
+      - image: circleci/buildpack-deps:bionic
+
+# define some common commands
+# see https://circleci.com/docs/2.0/configuration-reference/#commands-requires-version-21
+commands:
+  config-path:
+    description: "set environment variables and change PATH"
+    steps:
+    - run:
+        name: Configuring PATH
+        command: |
+          echo 'export PATH=~/repo/venv/bin:${PATH}' >> ${BASH_ENV}
+
+  install-system-deps:
+    steps:
+      - run:
+          name: Install system dependencies
+          command: |
+            sudo apt update
+            sudo apt install -y curl make build-essential libssl-dev libsecp256k1-dev python3 python3-dev python3-distutils python3-venv pkg-config
+
+jobs:
+  # install pythom and create an empty python virtualenv
+  prepare-system:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+
+    steps:
+      - install-system-deps
+      - checkout
+      - config-path
+      - run:
+          name: Create python venv
+          command: |
+            python3 -m venv venv
+            pip install -U pip wheel setuptools
+
+      - persist_to_workspace:
+          root: "~"
+          paths:
+            - repo
+  run-flake8:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+      - restore_cache:
+          key: flake8-venv-{{ checksum "constraints.txt" }}
+      - run:
+          name: Install flake8
+          command: |
+            pip install flake8 -c constraints.txt
+      - save_cache:
+          key: flake8-venv-{{ checksum "constraints.txt" }}
+          paths:
+            - venv
+      - run:
+          name: Run flake8
+          command: |
+            flake8 setup.py watchdog tests
+  install:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+
+      - restore_cache:
+          key: venv-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+
+      - run:
+          name: Install requirements
+          command: |
+            pip install -c constraints.txt -r requirements.txt
+      - save_cache:
+          key: venv-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+          paths:
+            - venv
+      - run:
+          name: Install package
+          command: |
+            pip install -c constraints.txt .
+      - persist_to_workspace:
+          root: "~"
+          paths:
+            - repo
+  run-pytest:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+      - run:
+          name: Run pytest
+          command: |
+            mkdir -p test-reports
+            pytest --junitxml=test-reports/junit.xml
+      # export test metadata to circleci, see
+      # https://circleci.com/docs/2.0/collect-test-data/#pytest
+      - store_test_results:
+          path: test-reports
+
+      - store_artifacts:
+          path: test-reports
+  build-docker-image:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: Build docker image
+          command: |
+            docker build . -t tlbc-watchdog
+
+workflows:
+  version: 2
+  default:
+    jobs:
+      - prepare-system
+      - run-flake8:
+          requires:
+            - prepare-system
+      - install:
+          requires:
+            - prepare-system
+      - run-pytest:
+          requires:
+            - install
+      - build-docker-image
