@@ -37,8 +37,8 @@ class SkipReporter:
     def from_fresh_state(cls, *args, **kwargs):
         return cls(cls.get_fresh_state(), *args, **kwargs)
 
-    @classmethod
-    def get_fresh_state(cls):
+    @staticmethod
+    def get_fresh_state():
         return SkipReporterState(
             latest_step=None,
             open_steps=set(),

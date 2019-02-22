@@ -1,29 +1,14 @@
-import random
-
 import pytest
 
-from web3.datastructures import (
-    MutableAttributeDict,
+from watchdog.db import AlreadyExists
+from watchdog.blocks import get_proposer, get_canonicalized_block
+
+from tests.data_generation import (
+    random_address,
+    random_private_key,
+    make_block,
+    make_branch,
 )
-
-from hexbytes import HexBytes
-from eth_utils.toolz import (
-    sliding_window,
-)
-
-from eth_keys import keys
-
-from watchdog.db import (
-    AlreadyExists,
-    NotFound,
-)
-from watchdog.blocks import (
-    get_canonicalized_block,
-    calculate_block_signature,
-)
-
-
-random.seed(0)
 
 
 @pytest.fixture
@@ -36,61 +21,6 @@ def populated_db(empty_db, inserted_blocks):
     for block in inserted_blocks:
         empty_db.insert(block)
     return empty_db
-
-
-def random_hash():
-    return bytes(random.randint(0, 255) for _ in range(32))
-
-
-def random_address():
-    return bytes(random.randint(0, 255) for _ in range(20))
-
-
-def random_height():
-    return random.randint(0, 100)
-
-
-def random_privkey():
-    return keys.PrivateKey(random_hash())
-
-
-def make_block(block_hash=None, parent_hash=None, proposer_privkey=None, height=None):
-    if proposer_privkey is None:
-        proposer_privkey = random_privkey()
-
-    block = MutableAttributeDict({
-        "hash": HexBytes(block_hash or random_hash()),
-        "sealFields": [HexBytes(b""), HexBytes(b"")],
-
-        "parentHash": HexBytes(parent_hash or random_hash()),
-        "sha3Uncles": HexBytes(random_hash()),
-        "author": proposer_privkey.public_key.to_address(),
-        "stateRoot": HexBytes(random_hash()),
-        "transactionsRoot": HexBytes(random_hash()),
-        "receiptsRoot": HexBytes(random_hash()),
-        "logsBloom": HexBytes(b"\x00" * 256),
-        "difficulty": 0,
-        "number": height if height is not None else random_height(),
-        "gasLimit": 0,
-        "gasUsed": 0,
-        "timestamp": 0,
-        "extraData": HexBytes(random_hash()),
-
-        # add proposer private key to simplify testing
-        "privkey": proposer_privkey,
-
-        "signature": "",
-    })
-    block["signature"] = calculate_block_signature(get_canonicalized_block(block), proposer_privkey).to_hex()
-    return block
-
-
-def make_branch(length):
-    hashes = [random_hash() for _ in range(length)]
-    return [
-        make_block(block_hash=child_hash, parent_hash=parent_hash, height=height)
-        for height, (parent_hash, child_hash) in enumerate(sliding_window(2, hashes))
-    ]
 
 
 def test_insert_block(populated_db):
@@ -108,6 +38,7 @@ def test_insert_hash_twice(populated_db, inserted_blocks):
 def test_insert_branch(populated_db):
     branch = make_branch(10)
     populated_db.insert_branch(branch)
+
     for block in branch:
         assert populated_db.contains(block.hash)
 
@@ -136,34 +67,60 @@ def test_does_not_contain_not_inserted_block(populated_db):
         assert not populated_db.contains(block.hash)
 
 
-def test_retrieve_proposer_by_hash(populated_db, inserted_blocks):
-    for block in inserted_blocks:
-        retrieved_proposer = populated_db.get_proposer_by_hash(block.hash)
-        assert retrieved_proposer == block.privkey.public_key.to_canonical_address()
+def test_retrieve_single_block_by_proposer_and_height(populated_db, inserted_blocks):
+    block = inserted_blocks[0]
+    proposer = get_proposer(get_canonicalized_block(block))
+    height = block.number
+
+    retrieved_blocks = populated_db.get_blocks_by_proposer_and_height(proposer, height)
+
+    assert len(retrieved_blocks) == 1
+
+    retrieved_block = retrieved_blocks[0]
+
+    assert retrieved_block.hash == block.hash
+    assert retrieved_block.height == height
+    assert retrieved_block.proposer == proposer
 
 
-def test_retrieve_proposer_of_nonexistant_block(populated_db):
-    with pytest.raises(NotFound):
-        populated_db.get_proposer_by_hash(random_address())
+def test_retrieve_no_blocks_by_proposer_and_height_for_non_existing_combinations(populated_db, inserted_blocks):
+    block = inserted_blocks[-1]
+
+    proposer = get_proposer(get_canonicalized_block(block))
+    proposer_without_block = random_address()  # Collision rate with an actual proposer is most like zero.
+
+    height = block.number
+    height_without_block = 123  # This number is related to the random_block_height generation function.
+
+    assert not populated_db.get_blocks_by_proposer_and_height(proposer, height_without_block)
+    assert not populated_db.get_blocks_by_proposer_and_height(proposer_without_block, height)
 
 
-def test_retrieve_hashes_by_height(empty_db):
-    random_blocks = [make_block(height=height) for height in [10, 20, 30]]
-    blocks_at_15 = [make_block(height=15) for _ in range(5)]
+def test_retrieve_multiple_blocks_by_proposer_and_height(empty_db):
+    proposer_privkey = random_private_key()
+    proposer = proposer_privkey.public_key.to_canonical_address()
+    height = 1
 
-    for block in random_blocks + blocks_at_15:
-        empty_db.insert(block)
+    block_one = make_block(proposer_privkey=proposer_privkey, height=height)
+    empty_db.insert(block_one)
 
-    assert set(empty_db.get_hashes_by_height(15)) == set(block.hash for block in blocks_at_15)
+    block_two = make_block(proposer_privkey=proposer_privkey, height=height)
+    empty_db.insert(block_two)
 
+    retrieved_blocks = empty_db.get_blocks_by_proposer_and_height(proposer, height)
 
-def test_retrieve_missing_hashes_by_height(empty_db):
-    random_blocks = [make_block(height=height) for height in [10, 20, 30]]
+    assert len(retrieved_blocks) == 2
 
-    for block in random_blocks:
-        empty_db.insert(block)
+    retrieved_block_one, retrieved_block_two = retrieved_blocks
 
-    assert empty_db.get_hashes_by_height(15) == []
+    assert retrieved_block_one.hash == block_one.hash
+    assert retrieved_block_two.hash == block_two.hash
+
+    assert retrieved_block_one.proposer == proposer
+    assert retrieved_block_two.proposer == proposer
+
+    assert retrieved_block_one.height == height
+    assert retrieved_block_two.height == height
 
 
 def test_empty_db_is_empty(empty_db):

@@ -28,6 +28,8 @@ from watchdog.db import BlockDB
 from watchdog.block_fetcher import BlockFetcher
 from watchdog.offline_reporter import OfflineReporter
 from watchdog.skip_reporter import SkipReporter
+from watchdog.equivocation_reporter import EquivocationReporter
+
 from watchdog.validators import (
     make_primary_function,
 )
@@ -80,11 +82,12 @@ class App:
         self.block_fetcher = None
         self.skip_reporter = None
         self.offline_reporter = None
+        self.equivocation_reporter = None
 
         self._initialize_db(self.db_dir / DB_FILE_NAME)
         self._initialize_w3(rpc_uri)
         self._load_primary_function(chain_spec_path)
-        self._initialize_reporters(self.state_path, self.db, skip_rate, offline_window_size)
+        self._initialize_reporters(self.state_path, skip_rate, offline_window_size)
         self._register_reporter_callbacks()
         self._running = False
 
@@ -143,7 +146,7 @@ class App:
             validator_definition = chain_spec["engine"]["authorityRound"]["params"]["validators"]
             self.get_primary_for_step = make_primary_function(validator_definition)
 
-    def _initialize_reporters(self, state_path, db, skip_rate, offline_window_size):
+    def _initialize_reporters(self, state_path, skip_rate, offline_window_size):
         try:
             app_state = self._load_app_state(state_path)
         except FileNotFoundError:
@@ -152,7 +155,7 @@ class App:
         self.block_fetcher = BlockFetcher(
             state=app_state.block_fetcher_state,
             w3=self.w3,
-            db=db,
+            db=self.db,
             max_reorg_depth=MAX_REORG_DEPTH,
         )
         self.skip_reporter = SkipReporter(
@@ -165,6 +168,9 @@ class App:
             get_primary_for_step=self.get_primary_for_step,
             offline_window_size=offline_window_size,
             allowed_skip_rate=skip_rate,
+        )
+        self.equivocation_reporter = EquivocationReporter(
+            db=self.db
         )
 
     def _load_app_state(self, state_path):
@@ -191,6 +197,7 @@ class App:
 
     def _register_reporter_callbacks(self):
         self.block_fetcher.register_report_callback(self.skip_reporter)
+        self.block_fetcher.register_report_callback(self.equivocation_reporter)
         self.skip_reporter.register_report_callback(self.skip_logger)
         self.skip_reporter.register_report_callback(self.offline_reporter)
         self.offline_reporter.register_report_callback(self.offline_logger)

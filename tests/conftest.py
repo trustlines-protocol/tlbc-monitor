@@ -1,28 +1,17 @@
 import pytest
 
-from eth_tester import (
-    EthereumTester,
-)
+from eth_tester import EthereumTester
 
 from eth_keys import keys
 
-from web3 import (
-    EthereumTesterProvider,
-    Web3,
-)
+from web3 import EthereumTesterProvider, Web3
 
-from eth_utils import (
-    int_to_big_endian,
-    to_checksum_address,
-)
+from eth_utils import int_to_big_endian, to_checksum_address
 
-from sqlalchemy import (
-    create_engine,
-)
+from sqlalchemy import create_engine
 
-from watchdog.db import (
-    BlockDB,
-)
+from watchdog.db import BlockDB
+
 
 from tests.fake_aura_backend import (
     FakeAuraBackend,
@@ -51,8 +40,7 @@ def eth_tester(address_to_private_key):
 @pytest.fixture
 def address_to_private_key():
     private_keys = [
-        keys.PrivateKey(int_to_big_endian(i).rjust(32, b"\x00"))
-        for i in range(1, 10)
+        keys.PrivateKey(int_to_big_endian(i).rjust(32, b"\x00")) for i in range(1, 10)
     ]
     return {
         private_key.public_key.to_canonical_address(): private_key
@@ -70,7 +58,7 @@ def w3(eth_tester):
 
 @pytest.fixture
 def engine():
-    return create_engine('sqlite:///:memory:')
+    return create_engine("sqlite:///:memory:")
 
 
 @pytest.fixture

@@ -43,8 +43,8 @@ class OfflineReporter:
     def from_fresh_state(cls, *args, **kwargs):
         return cls(cls.get_fresh_state(), *args, **kwargs)
 
-    @classmethod
-    def get_fresh_state(cls):
+    @staticmethod
+    def get_fresh_state():
         return OfflineReporterStateV1(
             reported_validators=set(),
             recent_skips_by_validator={}

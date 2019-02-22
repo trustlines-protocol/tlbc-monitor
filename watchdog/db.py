@@ -1,14 +1,7 @@
-from typing import (
-    Tuple,
-)
-
 from web3.datastructures import (
     AttributeDict,
 )
 
-from eth_utils import (
-    encode_hex,
-)
 from eth_utils.toolz import (
     sliding_window,
 )
@@ -48,8 +41,8 @@ class Block(Base):
     __tablename__ = "blocks"
 
     hash = Column(String(length=32), primary_key=True)
-    proposer = Column(String(length=20))
-    height = Column(Integer)
+    proposer = Column(String(length=20), index=True)
+    height = Column(Integer, index=True)
 
 
 class BlockDB:
@@ -92,15 +85,7 @@ class BlockDB:
         session = self.session_class()
         return session.query(exists().where(Block.hash == block_hash)).scalar()
 
-    def get_proposer_by_hash(self, block_hash: bytes):
+    def get_blocks_by_proposer_and_height(self, proposer: bytes, height: int):
         session = self.session_class()
-        block = session.query(Block).get(block_hash)
-        if block is None:
-            raise NotFound(f"Block with hash {encode_hex(block_hash)} does not exist")
-        else:
-            return block.proposer
-
-    def get_hashes_by_height(self, height: int) -> Tuple[bytes, ...]:
-        session = self.session_class()
-        query = session.query(Block).filter(Block.height == height)
-        return [block.hash for block in query.all()]
+        query = session.query(Block).filter(Block.proposer == proposer, Block.height == height)
+        return query.all()
