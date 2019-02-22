@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='tlbc-watchdog',
+    name='tlbc-monitor',
     version='0.0.1',
     packages=find_packages(),
     install_requires=[
@@ -19,7 +19,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'tlbc-watchdog=watchdog.main:main',
+            'tlbc-monitor=monitor.main:main',
         ],
     }
 )

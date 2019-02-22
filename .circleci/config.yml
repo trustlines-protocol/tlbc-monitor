@@ -66,7 +66,7 @@ jobs:
       - run:
           name: Run flake8
           command: |
-            flake8 setup.py watchdog tests
+            flake8 setup.py monitor tests
   install:
     executor: ubuntu-builder
     working_directory: ~/repo
@@ -124,7 +124,7 @@ jobs:
       - run:
           name: Build docker image
           command: |
-            docker build . -t tlbc-watchdog
+            docker build . -t tlbc-monitor
 
 workflows:
   version: 2

@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
 from sqlalchemy.exc import IntegrityError
 
-from watchdog.blocks import (
+from monitor.blocks import (
     get_canonicalized_block,
     get_proposer,
 )

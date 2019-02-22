@@ -4,7 +4,7 @@ import itertools
 
 from unittest.mock import Mock
 
-from watchdog.offline_reporter import (
+from monitor.offline_reporter import (
     OfflineReporter,
 )
 

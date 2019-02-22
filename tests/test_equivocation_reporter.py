@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock
-from watchdog.equivocation_reporter import EquivocationReporter
+from monitor.equivocation_reporter import EquivocationReporter
 from tests.data_generation import random_private_key, make_block
 
 

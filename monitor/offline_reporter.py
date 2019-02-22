@@ -26,7 +26,7 @@ class OfflineReporter:
     they were the primary of by calling it with the primary address and step number.
     """
 
-    logger = structlog.get_logger("watchdog.offline_reporter")
+    logger = structlog.get_logger("monitor.offline_reporter")
 
     def __init__(self, state, get_primary_for_step, offline_window_size, allowed_skip_rate):
         self.get_primary_for_step = get_primary_for_step

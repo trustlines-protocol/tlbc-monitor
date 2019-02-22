@@ -6,7 +6,7 @@ from typing import (
 
 import structlog
 
-from watchdog.db import (
+from monitor.db import (
     AlreadyExists,
 )
 
@@ -19,7 +19,7 @@ class BlockFetcherStateV1(NamedTuple):
 class BlockFetcher:
     """Fetches new blocks via a web3 interface and passes them on to a set of callbacks."""
 
-    logger = structlog.get_logger("watchdog.block_fetcher")
+    logger = structlog.get_logger("monitor.block_fetcher")
 
     def __init__(self, state, w3, db, max_reorg_depth=1000):
         self.w3 = w3

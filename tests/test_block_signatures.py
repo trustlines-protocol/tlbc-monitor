@@ -2,7 +2,7 @@ import pytest
 
 from web3.datastructures import AttributeDict
 
-from watchdog.blocks import (
+from monitor.blocks import (
     get_canonicalized_block,
     get_proposer,
     calculate_block_signature,

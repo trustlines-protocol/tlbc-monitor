@@ -7,22 +7,22 @@ RUN apt-get update \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv /opt/watchdog
-RUN /opt/watchdog/bin/pip install pip==18.0.0 setuptools==40.0.0
+RUN python3 -m venv /opt/tlbc-monitor
+RUN /opt/tlbc-monitor/bin/pip install pip==18.0.0 setuptools==40.0.0
 
-COPY ./constraints.txt /watchdog/constraints.txt
-COPY ./requirements.txt /watchdog/requirements.txt
+COPY ./constraints.txt /tlbc-monitor/constraints.txt
+COPY ./requirements.txt /tlbc-monitor/requirements.txt
 
-WORKDIR /watchdog
+WORKDIR /tlbc-monitor
 
 # remove development dependencies from the end of the file
 RUN sed -i -e '/development dependencies/q' requirements.txt
 
-RUN /opt/watchdog/bin/pip install -c constraints.txt -r requirements.txt
+RUN /opt/tlbc-monitor/bin/pip install -c constraints.txt -r requirements.txt
 
-COPY . /watchdog
+COPY . /tlbc-monitor
 
-RUN /opt/watchdog/bin/pip install -c constraints.txt .
+RUN /opt/tlbc-monitor/bin/pip install -c constraints.txt .
 
 
 
@@ -31,10 +31,10 @@ ENV LANG C.UTF-8
 RUN apt-get update \
     && apt-get install -y apt-utils python3 \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -s /opt/watchdog/bin/tlbc-watchdog /usr/local/bin/
+    && ln -s /opt/tlbc-monitor/bin/tlbc-monitor /usr/local/bin/
 
 FROM runner
-COPY --from=builder /opt/watchdog /opt/watchdog
-WORKDIR /opt/watchdog
+COPY --from=builder /opt/tlbc-monitor /opt/tlbc-monitor
+WORKDIR /opt/tlbc-monitor
 
-ENTRYPOINT ["tlbc-watchdog"]
+ENTRYPOINT ["tlbc-monitor"]

@@ -1,6 +1,6 @@
 import pytest
 
-from watchdog.validators import (
+from monitor.validators import (
     validate_validator_definition,
     make_primary_function,
 )

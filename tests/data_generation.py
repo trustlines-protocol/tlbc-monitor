@@ -2,7 +2,7 @@ import random
 from eth_keys import keys
 from hexbytes import HexBytes
 from web3.datastructures import MutableAttributeDict
-from watchdog.blocks import get_canonicalized_block, calculate_block_signature
+from monitor.blocks import get_canonicalized_block, calculate_block_signature
 from eth_utils.toolz import sliding_window
 
 

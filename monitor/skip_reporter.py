@@ -22,7 +22,7 @@ class SkipReporter:
     format returned by web3.py.
     """
 
-    logger = structlog.get_logger("watchdog.skip_reporter")
+    logger = structlog.get_logger("monitor.skip_reporter")
 
     def __init__(self, state, get_primary_for_step, grace_period=20):
         self.get_primary_for_step = get_primary_for_step

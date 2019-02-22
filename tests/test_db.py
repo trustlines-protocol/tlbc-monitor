@@ -1,7 +1,7 @@
 import pytest
 
-from watchdog.db import AlreadyExists
-from watchdog.blocks import get_proposer, get_canonicalized_block
+from monitor.db import AlreadyExists
+from monitor.blocks import get_proposer, get_canonicalized_block
 
 from tests.data_generation import (
     random_address,

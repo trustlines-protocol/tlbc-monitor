@@ -8,7 +8,7 @@ from web3.datastructures import (
     AttributeDict,
 )
 
-from watchdog.skip_reporter import (
+from monitor.skip_reporter import (
     SkipReporter,
 )
 

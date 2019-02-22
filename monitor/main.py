@@ -24,13 +24,13 @@ from eth_utils import (
     encode_hex,
 )
 
-from watchdog.db import BlockDB
-from watchdog.block_fetcher import BlockFetcher
-from watchdog.offline_reporter import OfflineReporter
-from watchdog.skip_reporter import SkipReporter
-from watchdog.equivocation_reporter import EquivocationReporter
+from monitor.db import BlockDB
+from monitor.block_fetcher import BlockFetcher
+from monitor.offline_reporter import OfflineReporter
+from monitor.skip_reporter import SkipReporter
+from monitor.equivocation_reporter import EquivocationReporter
 
-from watchdog.validators import (
+from monitor.validators import (
     make_primary_function,
 )
 
@@ -66,7 +66,7 @@ class AppStateV1(NamedTuple):
 
 class App:
 
-    logger = structlog.get_logger("watchdog.main")
+    logger = structlog.get_logger("monitor.main")
 
     def __init__(self, rpc_uri, chain_spec_path, report_dir, db_dir, skip_rate, offline_window_size):
         self.report_dir = report_dir

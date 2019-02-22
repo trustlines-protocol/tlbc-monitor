@@ -4,7 +4,7 @@ from unittest.mock import (
     call,
 )
 
-from watchdog.block_fetcher import (
+from monitor.block_fetcher import (
     BlockFetcher,
 )
 

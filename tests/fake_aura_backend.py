@@ -38,7 +38,7 @@ from web3.utils.formatters import (
     apply_formatter_if,
 )
 
-from watchdog.blocks import calculate_block_signature
+from monitor.blocks import calculate_block_signature
 
 
 class FakeAuraBackend(PyEVMBackend):

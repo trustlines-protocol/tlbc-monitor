@@ -10,7 +10,7 @@ from eth_utils import int_to_big_endian, to_checksum_address
 
 from sqlalchemy import create_engine
 
-from watchdog.db import BlockDB
+from monitor.db import BlockDB
 
 
 from tests.fake_aura_backend import (

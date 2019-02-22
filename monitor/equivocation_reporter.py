@@ -1,4 +1,4 @@
-from watchdog.blocks import get_proposer, get_canonicalized_block
+from monitor.blocks import get_proposer, get_canonicalized_block
 
 
 class EquivocationReporter:
