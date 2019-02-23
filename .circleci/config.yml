@@ -95,6 +95,19 @@ jobs:
           root: "~"
           paths:
             - repo
+  run-black:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+      - run:
+          name: Run black
+          command: |
+            black --check setup.py monitor tests
+
   run-pytest:
     executor: ubuntu-builder
     working_directory: ~/repo
@@ -138,6 +151,9 @@ workflows:
           requires:
             - prepare-system
       - run-pytest:
+          requires:
+            - install
+      - run-black:
           requires:
             - install
       - build-docker-image
