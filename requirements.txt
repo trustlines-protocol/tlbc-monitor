@@ -11,3 +11,5 @@ py-evm==0.2.0a33
 flake8
 mypy
 tox
+black
+pre-commit
