@@ -83,17 +83,27 @@ def test_retrieve_single_block_by_proposer_and_height(populated_db, inserted_blo
     assert retrieved_block.proposer == proposer
 
 
-def test_retrieve_no_blocks_by_proposer_and_height_for_non_existing_combinations(populated_db, inserted_blocks):
+def test_retrieve_no_blocks_by_proposer_and_height_for_non_existing_combinations(
+    populated_db, inserted_blocks
+):
     block = inserted_blocks[-1]
 
     proposer = get_proposer(get_canonicalized_block(block))
-    proposer_without_block = random_address()  # Collision rate with an actual proposer is most like zero.
+    proposer_without_block = (
+        random_address()
+    )  # Collision rate with an actual proposer is most like zero.
 
     height = block.number
-    height_without_block = 123  # This number is related to the random_block_height generation function.
+    height_without_block = (
+        123
+    )  # This number is related to the random_block_height generation function.
 
-    assert not populated_db.get_blocks_by_proposer_and_height(proposer, height_without_block)
-    assert not populated_db.get_blocks_by_proposer_and_height(proposer_without_block, height)
+    assert not populated_db.get_blocks_by_proposer_and_height(
+        proposer, height_without_block
+    )
+    assert not populated_db.get_blocks_by_proposer_and_height(
+        proposer_without_block, height
+    )
 
 
 def test_retrieve_multiple_blocks_by_proposer_and_height(empty_db):

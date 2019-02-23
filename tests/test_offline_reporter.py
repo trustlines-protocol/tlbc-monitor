@@ -4,9 +4,7 @@ import itertools
 
 from unittest.mock import Mock
 
-from monitor.offline_reporter import (
-    OfflineReporter,
-)
+from monitor.offline_reporter import OfflineReporter
 
 
 OFFLINE_WINDOW_SIZE = 20
@@ -15,16 +13,11 @@ ALLOWED_SKIP_RATE = 0.5
 
 @pytest.fixture
 def validators():
-    return [
-        b"\x00" * 20,
-        b"\x11" * 20,
-        b"\x22" * 20,
-    ]
+    return [b"\x00" * 20, b"\x11" * 20, b"\x22" * 20]
 
 
 @pytest.fixture
 def get_primary_for_step(validators):
-
     def f(step):
         return validators[step % len(validators)]
 
@@ -33,10 +26,10 @@ def get_primary_for_step(validators):
 
 @pytest.fixture
 def assigned_steps(get_primary_for_step):
-
     def f(validator):
         return (
-            step for step in itertools.count()
+            step
+            for step in itertools.count()
             if get_primary_for_step(step) == validator
         )
 
@@ -60,10 +53,7 @@ def test_report_entirely_offline_validator(validators, offline_reporter):
     for step in [0, 3, 6, 9]:
         offline_reporter(offline_validator, step)
 
-    report_callback.assert_called_once_with(
-        offline_validator,
-        [0, 3, 6, 9],
-    )
+    report_callback.assert_called_once_with(offline_validator, [0, 3, 6, 9])
 
 
 def test_barely_offline_validator(validators, offline_reporter):
@@ -74,10 +64,7 @@ def test_barely_offline_validator(validators, offline_reporter):
     for step in [0, 6, 12, 18]:
         offline_reporter(offline_validator, step)
 
-    report_callback.assert_called_once_with(
-        offline_validator,
-        [0, 6, 12, 18],
-    )
+    report_callback.assert_called_once_with(offline_validator, [0, 6, 12, 18])
 
 
 def test_minimally_proposing_validator(validators, offline_reporter):
@@ -113,7 +100,9 @@ def test_no_repeated_reporting(validators, offline_reporter):
     report_callback.assert_called_once()
 
 
-def test_multiple_offline_validators(validators, offline_reporter, get_primary_for_step):
+def test_multiple_offline_validators(
+    validators, offline_reporter, get_primary_for_step
+):
     report_callback = Mock()
     offline_reporter.register_report_callback(report_callback)
 

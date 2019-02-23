@@ -1,13 +1,8 @@
-from typing import (
-    Any,
-    NamedTuple,
-)
+from typing import Any, NamedTuple
 
 import structlog
 
-from eth_utils import (
-    encode_hex,
-)
+from eth_utils import encode_hex
 
 
 class SkipReporterState(NamedTuple):
@@ -39,16 +34,12 @@ class SkipReporter:
 
     @staticmethod
     def get_fresh_state():
-        return SkipReporterState(
-            latest_step=None,
-            open_steps=set(),
-        )
+        return SkipReporterState(latest_step=None, open_steps=set())
 
     @property
     def state(self):
         return SkipReporterState(
-            latest_step=self.latest_step,
-            open_steps=self.open_steps,
+            latest_step=self.latest_step, open_steps=self.open_steps
         )
 
     def register_report_callback(self, callback):
@@ -73,9 +64,7 @@ class SkipReporter:
         for step in missed_steps:
             primary = self.get_primary_for_step(step)
             self.logger.info(
-                "detected missed step",
-                primary=encode_hex(primary),
-                step=step,
+                "detected missed step", primary=encode_hex(primary), step=step
             )
             for callback in self.report_callbacks:
                 callback(primary, step)
@@ -90,5 +79,7 @@ class SkipReporter:
 
     def get_missed_steps(self):
         grace_period_end = self.latest_step - self.grace_period
-        missed_steps = sorted([step for step in self.open_steps if step < grace_period_end])
+        missed_steps = sorted(
+            [step for step in self.open_steps if step < grace_period_end]
+        )
         return missed_steps

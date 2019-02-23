@@ -1,48 +1,26 @@
 from eth_tester import PyEVMBackend
 from eth_tester.exceptions import ValidationError
 from eth_tester.normalization import DefaultNormalizer
-from eth_tester.normalization.common import (
-    normalize_dict,
-)
-from eth_tester.normalization.outbound import (
-    BLOCK_NORMALIZERS,
-)
+from eth_tester.normalization.common import normalize_dict
+from eth_tester.normalization.outbound import BLOCK_NORMALIZERS
 from eth_tester.validation import DefaultValidator
-from eth_tester.validation.common import (
-    validate_bytes,
-    validate_dict,
-)
-from eth_tester.validation.outbound import (
-    BLOCK_VALIDATORS,
-    validate_canonical_address,
-)
+from eth_tester.validation.common import validate_bytes, validate_dict
+from eth_tester.validation.outbound import BLOCK_VALIDATORS, validate_canonical_address
 
-from eth_utils import (
-    encode_hex,
-    is_dict,
-)
+from eth_utils import encode_hex, is_dict
 
 from hexbytes import HexBytes
-from eth_utils.toolz import (
-    identity,
-)
+from eth_utils.toolz import identity
 
 from web3.datastructures import AttributeDict
-from web3.middleware import (
-    construct_formatting_middleware,
-)
-from web3.providers.eth_tester.middleware import (
-    block_key_remapper,
-)
-from web3.utils.formatters import (
-    apply_formatter_if,
-)
+from web3.middleware import construct_formatting_middleware
+from web3.providers.eth_tester.middleware import block_key_remapper
+from web3.utils.formatters import apply_formatter_if
 
 from monitor.blocks import calculate_block_signature
 
 
 class FakeAuraBackend(PyEVMBackend):
-
     def __init__(self, genesis_parameters=None, genesis_state=None, private_keys=None):
         super().__init__(genesis_parameters, genesis_state)
 
@@ -60,17 +38,10 @@ class FakeAuraBackend(PyEVMBackend):
         return super().mine_blocks(num_blocks, coinbase)
 
     def get_block_with_aura_fields(self, block):
-        parity_fields = {
-            "author": block["miner"],
-            "sealFields": [b"", b""],
-        }
+        parity_fields = {"author": block["miner"], "sealFields": [b"", b""]}
         block_with_parity_fields = AttributeDict({**block, **parity_fields})
         signature = self._get_signature_for_block(block_with_parity_fields)
-        return {
-            **block,
-            **parity_fields,
-            "signature": signature,
-        }
+        return {**block, **parity_fields, "signature": signature}
 
     def _get_signature_for_block(self, block):
         if block["number"] == 0:
@@ -86,7 +57,9 @@ class FakeAuraBackend(PyEVMBackend):
                 )
             else:
                 block_with_web3_keys = fix_web3_keys(block_key_remapper(block))
-                return calculate_block_signature(block_with_web3_keys, private_key).to_bytes()
+                return calculate_block_signature(
+                    block_with_web3_keys, private_key
+                ).to_bytes()
 
     def get_block_by_hash(self, block_hash, full_transaction=True):
         block = super().get_block_by_hash(block_hash, full_transaction)
@@ -132,11 +105,7 @@ class FakeAuraNormalizer(DefaultNormalizer):
 
     block_normalizers = {
         **BLOCK_NORMALIZERS,
-        **{
-            "sealFields": identity,
-            "author": encode_hex,
-            "signature": encode_hex,
-        },
+        **{"sealFields": identity, "author": encode_hex, "signature": encode_hex},
     }
 
     @classmethod
@@ -145,22 +114,18 @@ class FakeAuraNormalizer(DefaultNormalizer):
 
 
 def fix_web3_keys(block):
-    return AttributeDict({
-        **block,
-        "receiptsRoot": HexBytes(block["receipts_root"]),
-        "logsBloom": block["logs_bloom"],
-    })
+    return AttributeDict(
+        {
+            **block,
+            "receiptsRoot": HexBytes(block["receipts_root"]),
+            "logsBloom": block["logs_bloom"],
+        }
+    )
 
 
 key_renaming_middleware = construct_formatting_middleware(
     result_formatters={
-        "eth_getBlockByHash": apply_formatter_if(
-            is_dict,
-            fix_web3_keys,
-        ),
-        "eth_getBlockByNumber": apply_formatter_if(
-            is_dict,
-            fix_web3_keys,
-        ),
+        "eth_getBlockByHash": apply_formatter_if(is_dict, fix_web3_keys),
+        "eth_getBlockByNumber": apply_formatter_if(is_dict, fix_web3_keys),
     }
 )

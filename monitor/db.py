@@ -1,25 +1,14 @@
-from web3.datastructures import (
-    AttributeDict,
-)
+from web3.datastructures import AttributeDict
 
-from eth_utils.toolz import (
-    sliding_window,
-)
+from eth_utils.toolz import sliding_window
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-)
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
 from sqlalchemy.exc import IntegrityError
 
-from monitor.blocks import (
-    get_canonicalized_block,
-    get_proposer,
-)
+from monitor.blocks import get_canonicalized_block, get_proposer
 
 
 Base = declarative_base()
@@ -46,7 +35,6 @@ class Block(Base):
 
 
 class BlockDB:
-
     def __init__(self, engine):
         self.engine = engine
 
@@ -75,7 +63,9 @@ class BlockDB:
         try:
             session.commit()
         except IntegrityError:
-            raise AlreadyExists(f"At least one block from the given branch already exists")
+            raise AlreadyExists(
+                f"At least one block from the given branch already exists"
+            )
 
     def is_empty(self):
         session = self.session_class()
@@ -87,5 +77,7 @@ class BlockDB:
 
     def get_blocks_by_proposer_and_height(self, proposer: bytes, height: int):
         session = self.session_class()
-        query = session.query(Block).filter(Block.proposer == proposer, Block.height == height)
+        query = session.query(Block).filter(
+            Block.proposer == proposer, Block.height == height
+        )
         return query.all()

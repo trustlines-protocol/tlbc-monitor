@@ -1,31 +1,21 @@
 import pytest
-from unittest.mock import (
-    Mock,
-    call,
-)
+from unittest.mock import Mock, call
 
-from web3.datastructures import (
-    AttributeDict,
-)
+from web3.datastructures import AttributeDict
 
-from monitor.skip_reporter import (
-    SkipReporter,
-)
+from monitor.skip_reporter import SkipReporter
 
 
 @pytest.fixture
 def validators():
-    return [
-        b"\x00" * 20,
-        b"\x11" * 20,
-        b"\x22" * 20,
-    ]
+    return [b"\x00" * 20, b"\x11" * 20, b"\x22" * 20]
 
 
 @pytest.fixture
 def get_primary_for_step(validators):
     def f(step):
         return validators[step % len(validators)]
+
     return f
 
 
@@ -35,9 +25,7 @@ def report_callback():
 
 
 def mock_block(step):
-    return AttributeDict({
-        "step": str(step),
-    })
+    return AttributeDict({"step": str(step)})
 
 
 def test_no_skips(report_callback):
@@ -57,7 +45,7 @@ def test_validator_offline(get_primary_for_step, report_callback, validators):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
         get_primary_for_step=get_primary_for_step,
-        grace_period=3
+        grace_period=3,
     )
     skip_reporter.register_report_callback(report_callback)
 

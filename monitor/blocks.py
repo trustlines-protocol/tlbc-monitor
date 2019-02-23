@@ -1,13 +1,8 @@
 import rlp
 
-from web3.datastructures import (
-    AttributeDict,
-)
+from web3.datastructures import AttributeDict
 
-from eth_utils import (
-    decode_hex,
-    keccak,
-)
+from eth_utils import decode_hex, keccak
 
 from eth_keys import keys
 
@@ -17,24 +12,25 @@ EMPTY_ADDRESS = b"\x00" * 20
 
 
 def get_canonicalized_block(block_dict):
-    return AttributeDict({
-        "parentHash": bytes(block_dict.parentHash),
-        "sha3Uncles": bytes(block_dict.sha3Uncles),
-        "author": decode_hex(block_dict.author),
-        "stateRoot": bytes(block_dict.stateRoot),
-        "transactionsRoot": bytes(block_dict.transactionsRoot),
-        "receiptsRoot": bytes(block_dict.receiptsRoot),
-        "logsBloom": bytes(block_dict.logsBloom),
-        "difficulty": block_dict.difficulty,
-        "number": block_dict.number,
-        "gasLimit": block_dict.gasLimit,
-        "gasUsed": block_dict.gasUsed,
-        "timestamp": block_dict.timestamp,
-        "extraData": bytes(block_dict.extraData),
-
-        "sealFields": block_dict.sealFields,
-        "signature": decode_hex(block_dict.signature),
-    })
+    return AttributeDict(
+        {
+            "parentHash": bytes(block_dict.parentHash),
+            "sha3Uncles": bytes(block_dict.sha3Uncles),
+            "author": decode_hex(block_dict.author),
+            "stateRoot": bytes(block_dict.stateRoot),
+            "transactionsRoot": bytes(block_dict.transactionsRoot),
+            "receiptsRoot": bytes(block_dict.receiptsRoot),
+            "logsBloom": bytes(block_dict.logsBloom),
+            "difficulty": block_dict.difficulty,
+            "number": block_dict.number,
+            "gasLimit": block_dict.gasLimit,
+            "gasUsed": block_dict.gasUsed,
+            "timestamp": block_dict.timestamp,
+            "extraData": bytes(block_dict.extraData),
+            "sealFields": block_dict.sealFields,
+            "signature": decode_hex(block_dict.signature),
+        }
+    )
 
 
 def get_proposer(canonicalized_block):
@@ -52,7 +48,9 @@ def bare_hash(canonicalized_block):
     """Return the hash of a block excluding its seal fields."""
     assert len(canonicalized_block.sealFields) >= 2
     if len(canonicalized_block.sealFields) > 2:
-        raise ValueError("Bare hash for blocks with empty step transitions is not supported")
+        raise ValueError(
+            "Bare hash for blocks with empty step transitions is not supported"
+        )
 
     serialized = [
         canonicalized_block.parentHash,

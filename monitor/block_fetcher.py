@@ -1,14 +1,9 @@
 import itertools
-from typing import (
-    Any,
-    NamedTuple,
-)
+from typing import Any, NamedTuple
 
 import structlog
 
-from monitor.db import (
-    AlreadyExists,
-)
+from monitor.db import AlreadyExists
 
 
 class BlockFetcherStateV1(NamedTuple):
@@ -37,17 +32,11 @@ class BlockFetcher:
 
     @classmethod
     def get_fresh_state(cls):
-        return BlockFetcherStateV1(
-            head=None,
-            current_branch=[],
-        )
+        return BlockFetcherStateV1(head=None, current_branch=[])
 
     @property
     def state(self):
-        return BlockFetcherStateV1(
-            head=self.head,
-            current_branch=self.current_branch,
-        )
+        return BlockFetcherStateV1(head=self.head, current_branch=self.current_branch)
 
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
@@ -105,24 +94,25 @@ class BlockFetcher:
         return number_of_synced_blocks
 
     def fetch_forward_sync_target(self):
-        return max(
-            self.w3.eth.blockNumber - self.max_reorg_depth,
-            0,
-        )
+        return max(self.w3.eth.blockNumber - self.max_reorg_depth, 0)
 
     def _should_sync_forwards(self, current_block_number):
         return current_block_number - self.head.number > self.max_reorg_depth
 
     def _sync_forwards(self, max_number_of_blocks):
         block_numbers_to_fetch = range(
-            self.head.number + 1,
-            self.head.number + 1 + max_number_of_blocks,
+            self.head.number + 1, self.head.number + 1 + max_number_of_blocks
         )
 
-        blocks = list(itertools.takewhile(
-            lambda block: block is not None,
-            (self.w3.eth.getBlock(block_number) for block_number in block_numbers_to_fetch),
-        ))
+        blocks = list(
+            itertools.takewhile(
+                lambda block: block is not None,
+                (
+                    self.w3.eth.getBlock(block_number)
+                    for block_number in block_numbers_to_fetch
+                ),
+            )
+        )
 
         if len(blocks) > 0:
             self._insert_branch(blocks)

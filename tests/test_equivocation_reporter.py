@@ -89,7 +89,9 @@ def test_report_equivocation(
 
     for call in report_callback.call_args_list:
         args, _ = call  # Only the *args are of interest.
-        retrieved_block_hashes = args[0]  # The first and only argument is the list of block hashes.
+        retrieved_block_hashes = args[
+            0
+        ]  # The first and only argument is the list of block hashes.
 
         for block_hash in retrieved_block_hashes:
             assert block_hash in proposed_block_hashes

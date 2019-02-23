@@ -5,24 +5,14 @@ from pathlib import Path
 import pickle
 import signal
 
-from typing import (
-    Any,
-    NamedTuple,
-)
+from typing import Any, NamedTuple
 
 import structlog
 
-from sqlalchemy import (
-    create_engine,
-)
+from sqlalchemy import create_engine
 
-from web3 import (
-    Web3,
-    HTTPProvider,
-)
-from eth_utils import (
-    encode_hex,
-)
+from web3 import Web3, HTTPProvider
+from eth_utils import encode_hex
 
 from monitor.db import BlockDB
 from monitor.block_fetcher import BlockFetcher
@@ -30,9 +20,7 @@ from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
 
-from monitor.validators import (
-    make_primary_function,
-)
+from monitor.validators import make_primary_function
 
 import click
 
@@ -51,7 +39,9 @@ BLOCK_FETCH_INTERVAL = STEP_DURATION / 2
 GRACE_PERIOD = 10  # number of blocks that have to pass before a missed block is counted
 DEFAULT_OFFLINE_WINDOW_SIZE_IN_SECONDS = 24 * 60 * 60
 DEFAULT_ALLOWED_SKIP_RATE = 0.5
-MAX_REORG_DEPTH = 1000  # blocks at this depth in the chain are assumed to not be replaced
+MAX_REORG_DEPTH = (
+    1000
+)  # blocks at this depth in the chain are assumed to not be replaced
 
 
 def step_number_to_timestamp(step):
@@ -68,7 +58,15 @@ class App:
 
     logger = structlog.get_logger("monitor.main")
 
-    def __init__(self, rpc_uri, chain_spec_path, report_dir, db_dir, skip_rate, offline_window_size):
+    def __init__(
+        self,
+        rpc_uri,
+        chain_spec_path,
+        report_dir,
+        db_dir,
+        skip_rate,
+        offline_window_size,
+    ):
         self.report_dir = report_dir
         self.db_dir = db_dir
 
@@ -143,7 +141,9 @@ class App:
     def _load_primary_function(self, chain_spec_path):
         with chain_spec_path.open("r") as f:
             chain_spec = json.load(f)
-            validator_definition = chain_spec["engine"]["authorityRound"]["params"]["validators"]
+            validator_definition = chain_spec["engine"]["authorityRound"]["params"][
+                "validators"
+            ]
             self.get_primary_for_step = make_primary_function(validator_definition)
 
     def _initialize_reporters(self, state_path, skip_rate, offline_window_size):
@@ -169,9 +169,7 @@ class App:
             offline_window_size=offline_window_size,
             allowed_skip_rate=skip_rate,
         )
-        self.equivocation_reporter = EquivocationReporter(
-            db=self.db
-        )
+        self.equivocation_reporter = EquivocationReporter(db=self.db)
 
     def _load_app_state(self, state_path):
         with state_path.open("rb") as state_file:
@@ -207,19 +205,20 @@ class App:
     #
     def skip_logger(self, validator, step):
         skip_timestamp = step_number_to_timestamp(step)
-        self.skip_file.write("{},{},{}\n".format(
-            step,
-            encode_hex(validator),
-            datetime.datetime.utcfromtimestamp(skip_timestamp),
-        ))
+        self.skip_file.write(
+            "{},{},{}\n".format(
+                step,
+                encode_hex(validator),
+                datetime.datetime.utcfromtimestamp(skip_timestamp),
+            )
+        )
 
     def offline_logger(self, validator, steps):
-        filename = f"offline_report_{encode_hex(validator)}_steps_{min(steps)}_to_{max(steps)}"
+        filename = (
+            f"offline_report_{encode_hex(validator)}_steps_{min(steps)}_to_{max(steps)}"
+        )
         with open(self.report_dir / filename, "w") as f:
-            json.dump({
-                "validator": encode_hex(validator),
-                "missed_steps": steps,
-            }, f)
+            json.dump({"validator": encode_hex(validator), "missed_steps": steps}, f)
 
 
 def validate_skip_rate(ctx, param, value):
@@ -258,7 +257,7 @@ def validate_skip_rate(ctx, param, value):
     default=default_db_dir,
     show_default=True,
     type=click.Path(file_okay=False, writable=True, resolve_path=True),
-    help="path to the directory in which the database and application state will be stored"
+    help="path to the directory in which the database and application state will be stored",
 )
 @click.option(
     "--skip-rate",

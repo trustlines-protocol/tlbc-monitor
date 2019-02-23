@@ -1,12 +1,7 @@
 import pytest
-from unittest.mock import (
-    Mock,
-    call,
-)
+from unittest.mock import Mock, call
 
-from monitor.block_fetcher import (
-    BlockFetcher,
-)
+from monitor.block_fetcher import BlockFetcher
 
 
 @pytest.fixture
@@ -21,7 +16,9 @@ def max_reorg_depth():
 
 @pytest.fixture
 def block_fetcher(w3, empty_db, report_callback, max_reorg_depth):
-    block_fetcher = BlockFetcher.from_fresh_state(w3, empty_db, max_reorg_depth=max_reorg_depth)
+    block_fetcher = BlockFetcher.from_fresh_state(
+        w3, empty_db, max_reorg_depth=max_reorg_depth
+    )
     block_fetcher.register_report_callback(report_callback)
     return block_fetcher
 
@@ -45,12 +42,18 @@ def test_fetch_multiple_blocks(eth_tester, block_fetcher, report_callback):
     eth_tester.mine_blocks(3)
     block_fetcher.fetch_and_insert_new_blocks()
     assert report_callback.call_count == 3
-    assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [1, 2, 3]
+    assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
+        1,
+        2,
+        3,
+    ]
 
 
 def test_number_of_fetched_blocks(eth_tester, block_fetcher):
     eth_tester.mine_blocks(8)
-    assert block_fetcher.fetch_and_insert_new_blocks() == 1 + 8  # genesis + mined blocks
+    assert (
+        block_fetcher.fetch_and_insert_new_blocks() == 1 + 8
+    )  # genesis + mined blocks
     eth_tester.mine_blocks(5)
     assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
 
@@ -74,12 +77,18 @@ def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_call
     report_callback.reset_mock()
 
 
-def test_fetch_multiple_blocks_with_max_number_of_blocks(eth_tester, block_fetcher, report_callback):
+def test_fetch_multiple_blocks_with_max_number_of_blocks(
+    eth_tester, block_fetcher, report_callback
+):
     eth_tester.mine_blocks(3)
     block_fetcher.fetch_and_insert_new_blocks(2)
     report_callback.assert_not_called()
     block_fetcher.fetch_and_insert_new_blocks(1)
-    assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [1, 2, 3]
+    assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
+        1,
+        2,
+        3,
+    ]
 
 
 def test_fetch_exact_number_of_blocks(eth_tester, block_fetcher, report_callback):
@@ -112,7 +121,10 @@ def test_noticed_reorg(w3, eth_tester, block_fetcher, report_callback):
 
     # fetch again
     block_fetcher.fetch_and_insert_new_blocks()
-    assert report_callback.call_args_list == common_reports + fork_a_reports + fork_b_reports
+    assert (
+        report_callback.call_args_list
+        == common_reports + fork_a_reports + fork_b_reports
+    )
 
 
 def test_rediscovered_reorg(w3, eth_tester, block_fetcher, report_callback):
@@ -211,9 +223,7 @@ def test_restart_with_reorg(w3, eth_tester, block_fetcher, report_callback):
 
     # restart block fetcher
     restarted_block_fetcher = BlockFetcher(
-        state=block_fetcher.state,
-        w3=w3,
-        db=block_fetcher.db,
+        state=block_fetcher.state, w3=w3, db=block_fetcher.db
     )
     restarted_block_fetcher.register_report_callback(report_callback)
     restarted_block_fetcher.fetch_and_insert_new_blocks()

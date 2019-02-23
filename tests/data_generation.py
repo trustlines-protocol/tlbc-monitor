@@ -26,7 +26,12 @@ def random_block_height():
 
 
 def make_block(
-    *, block_hash=None, parent_hash=None, proposer_privkey=None, height=None, timestamp=0
+    *,
+    block_hash=None,
+    parent_hash=None,
+    proposer_privkey=None,
+    height=None,
+    timestamp=0
 ):
     if proposer_privkey is None:
         proposer_privkey = random_private_key()

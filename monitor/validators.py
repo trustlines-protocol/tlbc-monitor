@@ -1,11 +1,6 @@
-from collections.abc import (
-    Mapping,
-)
+from collections.abc import Mapping
 
-from eth_utils import (
-    is_hex_address,
-    to_canonical_address,
-)
+from eth_utils import is_hex_address, to_canonical_address
 
 
 def validate_validator_definition(validator_definition):
@@ -26,8 +21,9 @@ def validate_validator_definition(validator_definition):
         if not multi_list_key.isdigit():
             raise ValueError("Multi list keys must be stringified ints")
 
-        if (not isinstance(multi_list_entry, Mapping) or
-                not list(multi_list_entry.keys()) == ["list"]):
+        if not isinstance(multi_list_entry, Mapping) or not list(
+            multi_list_entry.keys()
+        ) == ["list"]:
             raise ValueError("Multi list entries must be lists")
 
         if len(multi_list_entry["list"]) == 0:
@@ -41,9 +37,13 @@ def make_primary_function(validator_definition):
     validate_validator_definition(validator_definition)
 
     multi_list = {}
-    for start_block_number_str, multi_list_entry in validator_definition["multi"].items():
+    for start_block_number_str, multi_list_entry in validator_definition[
+        "multi"
+    ].items():
         start_block_number = int(start_block_number_str)
-        addresses = [to_canonical_address(address) for address in multi_list_entry["list"]]
+        addresses = [
+            to_canonical_address(address) for address in multi_list_entry["list"]
+        ]
         multi_list[start_block_number] = addresses
 
     descending_start_block_numbers = sorted(multi_list.keys(), reverse=True)
