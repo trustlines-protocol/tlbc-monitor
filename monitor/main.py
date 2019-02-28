@@ -13,13 +13,14 @@ from sqlalchemy import create_engine
 
 from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
+from eth_keys import keys
 
 from monitor.db import BlockDB
 from monitor.block_fetcher import BlockFetcher
 from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
-
+from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
 from monitor.validators import make_primary_function
 
 import click
@@ -72,6 +73,8 @@ class App:
 
         self.state_path = self.db_dir / STATE_FILE_NAME
         self.skip_file = open(report_dir / SKIP_FILE_NAME, "a")
+
+        self.equivocation_report_counter = 1
 
         self.w3 = None
         self.get_primary_for_step = None
@@ -199,6 +202,7 @@ class App:
         self.skip_reporter.register_report_callback(self.skip_logger)
         self.skip_reporter.register_report_callback(self.offline_reporter)
         self.offline_reporter.register_report_callback(self.offline_logger)
+        self.equivocation_reporter.register_report_callback(self.equivocation_logger)
 
     #
     # Reporters
@@ -219,6 +223,63 @@ class App:
         )
         with open(self.report_dir / filename, "w") as f:
             json.dump({"validator": encode_hex(validator), "missed_steps": steps}, f)
+
+    def equivocation_logger(self, equivocated_block_hashes):
+        """Log a reported equivocation event.
+
+        Each new equivocation report is logged into a new file, using a counter
+        as unique identifier.
+        Logged information are the proposer of the blocks, the height at which
+        all blocks have been equivocated and a list of all block hashes with
+        their timestamp.
+        Additionally two representing blocks are logged with their RLP encoded
+        header and related signature, which can be used for an equivocation
+        proof on reporting a validator.
+        """
+
+        # Use the first two blocks as representational data for the equivocation proof.
+        block_hash_one = equivocated_block_hashes[0]
+        block_hash_two = equivocated_block_hashes[1]
+
+        block_one = get_canonicalized_block(self.w3.eth.getBlock(block_hash_one))
+        block_two = get_canonicalized_block(self.w3.eth.getBlock(block_hash_two))
+
+        # All blocks share the same proposer and height, so just pick the first.
+        proposer = encode_hex(get_proposer(block_one))
+        height = block_two.number
+
+        with open(
+            self.report_dir / f"equivocation_report_{self.equivocation_report_counter}",
+            "w",
+        ) as file:
+            self.equivocation_report_counter += 1
+
+            file.write(f"Proposer: {proposer}\n")
+            file.write(f"Height: {height}\n")
+            file.write(f"Detection time: {datetime.datetime.utcnow()}\n")
+
+            file.write("\nEquivocated blocks:\n")
+            for block_hash in equivocated_block_hashes:
+                block = self.w3.eth.getBlock(block_hash)
+                file.write(
+                    f"{encode_hex(block_hash)} ({datetime.datetime.utcfromtimestamp(block.timestamp)})\n"
+                )
+
+            file.write(
+                "\n\nData for an equivocation proof by the first two equivocated blocks:\n"
+            )
+            file.write(
+                f"\nRLP encoded block header one:\n{rlp_encoded_block(block_one)}\n"
+            )
+            file.write(
+                f"\nSignature of block one:\n{keys.Signature(block_one.signature)}\n"
+            )
+            file.write(
+                f"\nRLP encoded block header two:\n{rlp_encoded_block(block_one)}\n"
+            )
+            file.write(
+                f"\nSignature of block two:\n{keys.Signature(block_two.signature)}\n"
+            )
 
 
 def validate_skip_rate(ctx, param, value):

@@ -46,7 +46,14 @@ def get_proposer(canonicalized_block):
 
 def bare_hash(canonicalized_block):
     """Return the hash of a block excluding its seal fields."""
+    encoded_block = rlp_encoded_block(canonicalized_block)
+    return keccak(encoded_block)
+
+
+def rlp_encoded_block(canonicalized_block):
+    """Return the RLP encoded block header excluding its seal fields."""
     assert len(canonicalized_block.sealFields) >= 2
+
     if len(canonicalized_block.sealFields) > 2:
         raise ValueError(
             "Bare hash for blocks with empty step transitions is not supported"
@@ -67,7 +74,8 @@ def bare_hash(canonicalized_block):
         canonicalized_block.timestamp,
         canonicalized_block.extraData,
     ]
-    return keccak(rlp.encode(serialized))
+
+    return rlp.encode(serialized)
 
 
 def calculate_block_signature(canonicalized_block, private_key):
