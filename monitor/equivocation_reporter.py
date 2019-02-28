@@ -1,3 +1,6 @@
+import structlog
+from eth_utils import encode_hex
+
 from monitor.blocks import get_proposer, get_canonicalized_block
 
 
@@ -7,6 +10,8 @@ class EquivocationReporter:
     The user of this reporter has to make sure to write the
     block into the database before calling the reporter with this block.
     """
+
+    logger = structlog.get_logger("monitor.equivocation_reporter")
 
     def __init__(self, db):
         self.db = db
@@ -33,5 +38,9 @@ class EquivocationReporter:
         assert block.hash in block_hashes_by_same_proposer_on_same_height
 
         if len(block_hashes_by_same_proposer_on_same_height) >= 2:
+            self.logger.info(
+                "detected equivocation", proposer=encode_hex(proposer), height=height
+            )
+
             for callback in self.report_callbacks:
                 callback(block_hashes_by_same_proposer_on_same_height)

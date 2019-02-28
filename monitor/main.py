@@ -44,6 +44,32 @@ MAX_REORG_DEPTH = (
     1000
 )  # blocks at this depth in the chain are assumed to not be replaced
 
+EQUIVOCATION_REPORT_TEMPLATE = """\
+Proposer: {proposer_address}
+Block height: {block_height}
+Detection time: {detection_time}
+
+Equivocated blocks:
+{block_hash_timestamp_list}
+
+Data for an equivocation proof by the first two equivocated blocks:
+
+RLP encoded block header one:
+{rlp_encoded_block_header_one}
+
+Signature of block header one:
+{signature_block_header_one}
+
+RLP encoded block header two:
+{rlp_encoded_block_header_two}
+
+Signature of block header two:
+{signature_block_header_two}
+
+------------------------------
+
+"""
+
 
 def step_number_to_timestamp(step):
     return step * STEP_DURATION
@@ -73,8 +99,6 @@ class App:
 
         self.state_path = self.db_dir / STATE_FILE_NAME
         self.skip_file = open(report_dir / SKIP_FILE_NAME, "a")
-
-        self.equivocation_report_counter = 1
 
         self.w3 = None
         self.get_primary_for_step = None
@@ -244,41 +268,39 @@ class App:
         block_one = get_canonicalized_block(self.w3.eth.getBlock(block_hash_one))
         block_two = get_canonicalized_block(self.w3.eth.getBlock(block_hash_two))
 
-        # All blocks share the same proposer and height, so just pick the first.
-        proposer = encode_hex(get_proposer(block_one))
-        height = block_two.number
+        block_hash_timestamp_list = ""
+
+        for block_hash in equivocated_block_hashes:
+            block = self.w3.eth.getBlock(block_hash)
+            block_hash_timestamp_list += "{} ({})\n".format(
+                encode_hex(block_hash),
+                datetime.datetime.utcfromtimestamp(block.timestamp),
+            )
+
+        proposer_address = encode_hex(get_proposer(block_one))
+
+        equivocation_report_template_variables = {
+            "proposer_address": proposer_address,
+            "block_height": block_one.number,
+            "detection_time": datetime.datetime.utcnow(),
+            "block_hash_timestamp_list": block_hash_timestamp_list,
+            "rlp_encoded_block_header_one": rlp_encoded_block(block_one),
+            "signature_block_header_one": keys.Signature(block_one.signature),
+            "rlp_encoded_block_header_two": rlp_encoded_block(block_two),
+            "signature_block_header_two": keys.Signature(block_two.signature),
+        }
+
+        equivocation_report_file_name = (
+            f"equivocation_reports_for_proposer_{proposer_address}"
+        )
 
         with open(
-            self.report_dir / f"equivocation_report_{self.equivocation_report_counter}",
-            "w",
-        ) as file:
-            self.equivocation_report_counter += 1
-
-            file.write(f"Proposer: {proposer}\n")
-            file.write(f"Height: {height}\n")
-            file.write(f"Detection time: {datetime.datetime.utcnow()}\n")
-
-            file.write("\nEquivocated blocks:\n")
-            for block_hash in equivocated_block_hashes:
-                block = self.w3.eth.getBlock(block_hash)
-                file.write(
-                    f"{encode_hex(block_hash)} ({datetime.datetime.utcfromtimestamp(block.timestamp)})\n"
+            self.report_dir / equivocation_report_file_name, "a"
+        ) as equivocation_report_file:
+            equivocation_report_file.write(
+                EQUIVOCATION_REPORT_TEMPLATE.format(
+                    **equivocation_report_template_variables
                 )
-
-            file.write(
-                "\n\nData for an equivocation proof by the first two equivocated blocks:\n"
-            )
-            file.write(
-                f"\nRLP encoded block header one:\n{rlp_encoded_block(block_one)}\n"
-            )
-            file.write(
-                f"\nSignature of block one:\n{keys.Signature(block_one.signature)}\n"
-            )
-            file.write(
-                f"\nRLP encoded block header two:\n{rlp_encoded_block(block_one)}\n"
-            )
-            file.write(
-                f"\nSignature of block two:\n{keys.Signature(block_two.signature)}\n"
             )
 
 
