@@ -44,13 +44,14 @@ MAX_REORG_DEPTH = (
     1000
 )  # blocks at this depth in the chain are assumed to not be replaced
 
+BLOCK_HASH_AND_TIMESTAMP_TEMPLATE = "{block_hash} ({block_timestamp})"
 EQUIVOCATION_REPORT_TEMPLATE = """\
 Proposer: {proposer_address}
 Block height: {block_height}
 Detection time: {detection_time}
 
 Equivocated blocks:
-{block_hash_timestamp_list}
+{block_hash_timestamp_summary}
 
 Data for an equivocation proof by the first two equivocated blocks:
 
@@ -261,29 +262,31 @@ class App:
         proof on reporting a validator.
         """
 
-        # Use the first two blocks as representational data for the equivocation proof.
-        block_hash_one = equivocated_block_hashes[0]
-        block_hash_two = equivocated_block_hashes[1]
+        blocks = [
+            self.w3.eth.getBlock(block_hash) for block_hash in equivocated_block_hashes
+        ]
 
-        block_one = get_canonicalized_block(self.w3.eth.getBlock(block_hash_one))
-        block_two = get_canonicalized_block(self.w3.eth.getBlock(block_hash_two))
-
-        block_hash_timestamp_list = ""
-
-        for block_hash in equivocated_block_hashes:
-            block = self.w3.eth.getBlock(block_hash)
-            block_hash_timestamp_list += "{} ({})\n".format(
-                encode_hex(block_hash),
-                datetime.datetime.utcfromtimestamp(block.timestamp),
+        block_hashes_and_timestamp_strings = [
+            BLOCK_HASH_AND_TIMESTAMP_TEMPLATE.format(
+                block_hash=encode_hex(block.hash),
+                block_timestamp=datetime.datetime.utcfromtimestamp(block.timestamp),
             )
+            for block in blocks
+        ]
 
-        proposer_address = encode_hex(get_proposer(block_one))
+        block_hash_and_timestamp_summary = "\n".join(block_hashes_and_timestamp_strings)
+
+        # Use the first two blocks as representational data for the equivocation proof.
+        block_one = get_canonicalized_block(blocks[0])
+        block_two = get_canonicalized_block(blocks[1])
+
+        proposer_address_hex = encode_hex(get_proposer(block_one))
 
         equivocation_report_template_variables = {
-            "proposer_address": proposer_address,
+            "proposer_address": proposer_address_hex,
             "block_height": block_one.number,
             "detection_time": datetime.datetime.utcnow(),
-            "block_hash_timestamp_list": block_hash_timestamp_list,
+            "block_hash_timestamp_summary": block_hash_and_timestamp_summary,
             "rlp_encoded_block_header_one": rlp_encoded_block(block_one),
             "signature_block_header_one": keys.Signature(block_one.signature),
             "rlp_encoded_block_header_two": rlp_encoded_block(block_two),
@@ -291,7 +294,7 @@ class App:
         }
 
         equivocation_report_file_name = (
-            f"equivocation_reports_for_proposer_{proposer_address}"
+            f"equivocation_reports_for_proposer_{proposer_address_hex}"
         )
 
         with open(
