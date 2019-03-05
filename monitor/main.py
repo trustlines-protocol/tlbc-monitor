@@ -252,15 +252,15 @@ class App:
     def equivocation_logger(self, equivocated_block_hashes):
         """Log a reported equivocation event.
 
-        Each new equivocation report is logged into a new file, using a counter
-        as unique identifier.
-        Logged information are the proposer of the blocks, the height at which
-        all blocks have been equivocated and a list of all block hashes with
-        their timestamp.
-        Additionally two representing blocks are logged with their RLP encoded
-        header and related signature, which can be used for an equivocation
-        proof on reporting a validator.
+        Equivocation reports are logged into files separated by the proposers
+        address. Logged information are the proposer of the blocks, the height
+        at which all blocks have been equivocated and a list of all block hashes
+        with their timestamp. Additionally two representing blocks are logged
+        with their RLP encoded header and related signature, which can be used
+        for an equivocation proof on reporting a validator.
         """
+
+        assert len(equivocated_block_hashes) >= 2
 
         blocks = [
             self.w3.eth.getBlock(block_hash) for block_hash in equivocated_block_hashes
