@@ -13,13 +13,14 @@ from sqlalchemy import create_engine
 
 from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
+from eth_keys import keys
 
 from monitor.db import BlockDB
 from monitor.block_fetcher import BlockFetcher
 from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
-
+from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
 from monitor.validators import make_primary_function
 
 import click
@@ -42,6 +43,33 @@ DEFAULT_ALLOWED_SKIP_RATE = 0.5
 MAX_REORG_DEPTH = (
     1000
 )  # blocks at this depth in the chain are assumed to not be replaced
+
+BLOCK_HASH_AND_TIMESTAMP_TEMPLATE = "{block_hash} ({block_timestamp})"
+EQUIVOCATION_REPORT_TEMPLATE = """\
+Proposer: {proposer_address}
+Block height: {block_height}
+Detection time: {detection_time}
+
+Equivocated blocks:
+{block_hash_timestamp_summary}
+
+Data for an equivocation proof by the first two equivocated blocks:
+
+RLP encoded block header one:
+{rlp_encoded_block_header_one}
+
+Signature of block header one:
+{signature_block_header_one}
+
+RLP encoded block header two:
+{rlp_encoded_block_header_two}
+
+Signature of block header two:
+{signature_block_header_two}
+
+------------------------------
+
+"""
 
 
 def step_number_to_timestamp(step):
@@ -199,6 +227,7 @@ class App:
         self.skip_reporter.register_report_callback(self.skip_logger)
         self.skip_reporter.register_report_callback(self.offline_reporter)
         self.offline_reporter.register_report_callback(self.offline_logger)
+        self.equivocation_reporter.register_report_callback(self.equivocation_logger)
 
     #
     # Reporters
@@ -219,6 +248,63 @@ class App:
         )
         with open(self.report_dir / filename, "w") as f:
             json.dump({"validator": encode_hex(validator), "missed_steps": steps}, f)
+
+    def equivocation_logger(self, equivocated_block_hashes):
+        """Log a reported equivocation event.
+
+        Equivocation reports are logged into files separated by the proposers
+        address. Logged information are the proposer of the blocks, the height
+        at which all blocks have been equivocated and a list of all block hashes
+        with their timestamp. Additionally two representing blocks are logged
+        with their RLP encoded header and related signature, which can be used
+        for an equivocation proof on reporting a validator.
+        """
+
+        assert len(equivocated_block_hashes) >= 2
+
+        blocks = [
+            self.w3.eth.getBlock(block_hash) for block_hash in equivocated_block_hashes
+        ]
+
+        block_hashes_and_timestamp_strings = [
+            BLOCK_HASH_AND_TIMESTAMP_TEMPLATE.format(
+                block_hash=encode_hex(block.hash),
+                block_timestamp=datetime.datetime.utcfromtimestamp(block.timestamp),
+            )
+            for block in blocks
+        ]
+
+        block_hash_and_timestamp_summary = "\n".join(block_hashes_and_timestamp_strings)
+
+        # Use the first two blocks as representational data for the equivocation proof.
+        block_one = get_canonicalized_block(blocks[0])
+        block_two = get_canonicalized_block(blocks[1])
+
+        proposer_address_hex = encode_hex(get_proposer(block_one))
+
+        equivocation_report_template_variables = {
+            "proposer_address": proposer_address_hex,
+            "block_height": block_one.number,
+            "detection_time": datetime.datetime.utcnow(),
+            "block_hash_timestamp_summary": block_hash_and_timestamp_summary,
+            "rlp_encoded_block_header_one": rlp_encoded_block(block_one),
+            "signature_block_header_one": keys.Signature(block_one.signature),
+            "rlp_encoded_block_header_two": rlp_encoded_block(block_two),
+            "signature_block_header_two": keys.Signature(block_two.signature),
+        }
+
+        equivocation_report_file_name = (
+            f"equivocation_reports_for_proposer_{proposer_address_hex}"
+        )
+
+        with open(
+            self.report_dir / equivocation_report_file_name, "a"
+        ) as equivocation_report_file:
+            equivocation_report_file.write(
+                EQUIVOCATION_REPORT_TEMPLATE.format(
+                    **equivocation_report_template_variables
+                )
+            )
 
 
 def validate_skip_rate(ctx, param, value):
