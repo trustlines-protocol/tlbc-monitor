@@ -1,9 +1,9 @@
-import asyncio
 import datetime
 import json
 from pathlib import Path
 import pickle
 import signal
+import time
 
 from typing import Any, NamedTuple
 
@@ -117,7 +117,7 @@ class App:
         self._register_reporter_callbacks()
         self._running = False
 
-    async def run(self):
+    def run(self):
         self._running = True
         try:
             self.logger.info("starting sync")
@@ -131,15 +131,15 @@ class App:
                 )
 
                 if number_of_new_blocks == 0:
-                    await asyncio.sleep(BLOCK_FETCH_INTERVAL)
-                else:
-                    await asyncio.sleep(0.01)
+                    time.sleep(BLOCK_FETCH_INTERVAL)
         finally:
             self.skip_file.close()
             self.dump_app_state()
 
     def stop(self):
-        self.logger.info("Stopping... ")
+        self.logger.info(
+            "Stopping tlbc-monitor. This may take a long time, please be patient!"
+        )
         self._running = False
 
     def dump_app_state(self):
@@ -371,8 +371,6 @@ def main(
     skip_rate,
     offline_window_size_in_seconds,
 ):
-    loop = asyncio.get_event_loop()
-
     offline_window_size_in_steps = offline_window_size_in_seconds // STEP_DURATION
     app = App(
         rpc_uri=rpc_uri,
@@ -383,12 +381,9 @@ def main(
         offline_window_size=offline_window_size_in_steps,
     )
 
-    loop.add_signal_handler(signal.SIGTERM, app.stop)
-    loop.add_signal_handler(signal.SIGINT, app.stop)
-    try:
-        loop.run_until_complete(app.run())
-    finally:
-        loop.close()
+    signal.signal(signal.SIGTERM, lambda _signum, _frame: app.stop())
+    signal.signal(signal.SIGINT, lambda _signum, _frame: app.stop())
+    app.run()
 
 
 if __name__ == "__main__":
