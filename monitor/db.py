@@ -1,9 +1,10 @@
 from typing import Any
+import pickle
 from web3.datastructures import AttributeDict
 
 from eth_utils.toolz import sliding_window
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
@@ -34,6 +35,12 @@ class Block(Base):
     height = Column(Integer, index=True)
 
 
+class NamedBlob(Base):
+    __tablename__ = "pickled"
+    name = Column(String(length=20), primary_key=True)
+    blob = Column(LargeBinary())
+
+
 def blocks_from_block_dicts(block_dicts):
     return [
         Block(
@@ -54,6 +61,26 @@ def ensure_branch(block_dicts):
     for parent, child in sliding_window(2, block_dicts):
         if child.parentHash != parent.hash:
             raise ValueError("Given branch is not connected")
+
+
+def load_pickled(session, name):
+    """load the pickled NamedBlob object with the given name"""
+    named_blob = session.query(NamedBlob).filter_by(name=name).first()
+    if named_blob is None:
+        return None
+    else:
+        return pickle.loads(named_blob.blob)
+
+
+def store_pickled(session, name, obj):
+    """store the given python obj as pickled NamedBlob object under the given name"""
+    pickled_state = pickle.dumps(obj)
+    named_blob = session.query(NamedBlob).filter_by(name=name).first()
+    if named_blob is None:
+        named_blob = NamedBlob(name=name, blob=pickled_state)
+    else:
+        named_blob.blob = pickled_state
+    session.add(named_blob)
 
 
 class BlockDB:

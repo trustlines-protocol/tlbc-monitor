@@ -1,7 +1,6 @@
 import datetime
 import json
 from pathlib import Path
-import pickle
 import signal
 import time
 
@@ -15,7 +14,7 @@ from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
 from eth_keys import keys
 
-from monitor.db import BlockDB
+from monitor.db import BlockDB, load_pickled, store_pickled
 from monitor.block_fetcher import BlockFetcher
 from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
@@ -30,7 +29,6 @@ DEFAULT_RPC_URI = "http://localhost:8540"
 default_report_dir = str(Path.cwd() / "reports")
 default_db_dir = str(Path.cwd() / "state")
 SKIP_FILE_NAME = "skips"
-STATE_FILE_NAME = "state"
 DB_FILE_NAME = "db"
 SQLITE_URL_FORMAT = "sqlite:////{path}"
 
@@ -98,7 +96,6 @@ class App:
         self.report_dir = report_dir
         self.db_dir = db_dir
 
-        self.state_path = self.db_dir / STATE_FILE_NAME
         self.skip_file = open(report_dir / SKIP_FILE_NAME, "a")
 
         self.w3 = None
@@ -113,7 +110,7 @@ class App:
         self._initialize_db(self.db_dir / DB_FILE_NAME)
         self._initialize_w3(rpc_uri)
         self._load_primary_function(chain_spec_path)
-        self._initialize_reporters(self.state_path, skip_rate, offline_window_size)
+        self._initialize_reporters(skip_rate, offline_window_size)
         self._register_reporter_callbacks()
         self._running = False
 
@@ -122,7 +119,9 @@ class App:
         try:
             self.logger.info("starting sync")
             while self._running:
-                number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks()
+                number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
+                    max_number_of_blocks=500
+                )
 
                 self.logger.info(
                     f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%)",
@@ -134,7 +133,6 @@ class App:
                     time.sleep(BLOCK_FETCH_INTERVAL)
         finally:
             self.skip_file.close()
-            self.dump_app_state()
 
     def stop(self):
         self.logger.info(
@@ -142,9 +140,8 @@ class App:
         )
         self._running = False
 
-    def dump_app_state(self):
-        with self.state_path.open("wb") as f:
-            pickle.dump(self.app_state, f)
+    def store_app_state_in_db(self, session):
+        store_pickled(session, "appstate", self.app_state)
 
     @property
     def app_state(self):
@@ -174,17 +171,20 @@ class App:
             ]
             self.get_primary_for_step = make_primary_function(validator_definition)
 
-    def _initialize_reporters(self, state_path, skip_rate, offline_window_size):
-        try:
-            app_state = self._load_app_state(state_path)
-        except FileNotFoundError:
-            app_state = self._initialize_app_state()
+    def _initialize_reporters(self, skip_rate, offline_window_size):
+        app_state = (
+            load_pickled(self.db.session_class(), "appstate")
+            or self._initialize_app_state()
+        )
+        if not isinstance(app_state, AppStateV1):
+            raise RuntimeError("app_state has unexpected format")
 
         self.block_fetcher = BlockFetcher(
             state=app_state.block_fetcher_state,
             w3=self.w3,
             db=self.db,
             max_reorg_depth=MAX_REORG_DEPTH,
+            store_app_state=self.store_app_state_in_db,
         )
         self.skip_reporter = SkipReporter(
             state=app_state.skip_reporter_state,
@@ -199,22 +199,7 @@ class App:
         )
         self.equivocation_reporter = EquivocationReporter(db=self.db)
 
-    def _load_app_state(self, state_path):
-        with state_path.open("rb") as state_file:
-            try:
-                self.logger.info("loading state", path=state_path)
-                app_state = pickle.load(state_file)
-            except Exception:
-                self.logger.critical("error loading state file")
-                raise
-
-        if not isinstance(app_state, AppStateV1):
-            raise RuntimeError("state file has unexpected format")
-
-        return app_state
-
     def _initialize_app_state(self):
-        self.logger.info("no state file found, starting from genesis")
         return AppStateV1(
             block_fetcher_state=BlockFetcher.get_fresh_state(),
             skip_reporter_state=SkipReporter.get_fresh_state(),
