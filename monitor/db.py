@@ -34,6 +34,28 @@ class Block(Base):
     height = Column(Integer, index=True)
 
 
+def blocks_from_block_dicts(block_dicts):
+    return [
+        Block(
+            hash=block_dict.hash,
+            proposer=get_proposer(get_canonicalized_block(block_dict)),
+            height=block_dict.number,
+        )
+        for block_dict in block_dicts
+    ]
+
+
+def ensure_branch(block_dicts):
+    """make sure we really have a branch, i.e. each block is the parent block
+    of the following block
+
+    raises ValueError if block_dicts is not a branch.
+    """
+    for parent, child in sliding_window(2, block_dicts):
+        if child.parentHash != parent.hash:
+            raise ValueError("Given branch is not connected")
+
+
 class BlockDB:
     def __init__(self, engine):
         self.engine = engine
@@ -45,19 +67,9 @@ class BlockDB:
         self.insert_branch([block_dict])
 
     def insert_branch(self, block_dicts):
-        for parent, child in sliding_window(2, block_dicts):
-            if child.parentHash != parent.hash:
-                raise ValueError("Given branch is not connected")
-
+        ensure_branch(block_dicts)
+        blocks = blocks_from_block_dicts(block_dicts)
         session = self.session_class()
-        blocks = [
-            Block(
-                hash=block_dict.hash,
-                proposer=get_proposer(get_canonicalized_block(block_dict)),
-                height=block_dict.number,
-            )
-            for block_dict in block_dicts
-        ]
         session.add_all(blocks)
 
         try:
