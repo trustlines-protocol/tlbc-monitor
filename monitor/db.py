@@ -1,3 +1,4 @@
+from typing import Any
 from web3.datastructures import AttributeDict
 
 from eth_utils.toolz import sliding_window
@@ -10,8 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 from monitor.blocks import get_canonicalized_block, get_proposer
 
-
-Base = declarative_base()
+Base: Any = declarative_base()
 
 
 class DBError(Exception):
