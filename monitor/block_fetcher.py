@@ -41,11 +41,23 @@ class BlockFetcher:
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
 
+    def _run_callbacks(self, blocks):
+        for block in blocks:
+            # XXX block_fetcher currently does no callbacks for the first block
+            # see https://github.com/trustlines-network/tlbc-monitor/issues/12
+            # we reproduce that bug here on purpose for the moment (i.e. too
+            # lazy to fix the tests)
+            if block.number == 0:
+                continue
+
+            for callback in self.report_callbacks:
+                callback(block)
+
     def _insert_branch(self, blocks):
         if len(blocks) == 0:
             return
 
-        if not self.db.contains(blocks[0].parentHash):
+        if blocks[0].number != 0 and not self.db.contains(blocks[0].parentHash):
             raise ValueError("Tried to insert block with unknown parent")
 
         try:
@@ -53,14 +65,14 @@ class BlockFetcher:
         except AlreadyExists:
             raise ValueError("Tried to insert already known block")
 
-        for block in blocks:
-            for callback in self.report_callbacks:
-                callback(block)
+        self._run_callbacks(blocks)
+
+        self.head = blocks[-1]
+        self.current_branch.clear()
 
     def _insert_first_block(self):
         block = self.w3.eth.getBlock(0)
-        self.head = block
-        self.db.insert(block)
+        self._insert_branch([block])
 
     def fetch_and_insert_new_blocks(self, max_number_of_blocks=5000):
         """Fetches up to `max_number_of_blocks` blocks and updates the internal state
@@ -114,10 +126,7 @@ class BlockFetcher:
             )
         )
 
-        if len(blocks) > 0:
-            self._insert_branch(blocks)
-            self.head = blocks[-1]
-
+        self._insert_branch(blocks)
         return len(blocks)
 
     def _sync_backwards(self, max_blocks_to_fetch):
@@ -127,8 +136,6 @@ class BlockFetcher:
 
         if complete and len(self.current_branch) > 0:
             self._insert_branch(list(reversed(self.current_branch)))
-            self.head = self.current_branch[0]
-            self.current_branch.clear()
 
         return number_of_fetched_blocks
 
