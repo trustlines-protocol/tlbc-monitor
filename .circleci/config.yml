@@ -112,6 +112,19 @@ jobs:
           command: |
             black --check setup.py monitor tests
 
+  run-mypy:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+      - run:
+          name: Run mypy
+          command: |
+            mypy --ignore-missing-imports monitor tests
+
   run-pytest:
     executor: ubuntu-builder
     working_directory: ~/repo
@@ -155,6 +168,9 @@ workflows:
           requires:
             - prepare-system
       - run-pytest:
+          requires:
+            - install
+      - run-mypy:
           requires:
             - install
       - run-black:
