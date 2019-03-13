@@ -29,7 +29,7 @@ DEFAULT_RPC_URI = "http://localhost:8540"
 default_report_dir = str(Path.cwd() / "reports")
 default_db_dir = str(Path.cwd() / "state")
 SKIP_FILE_NAME = "skips"
-DB_FILE_NAME = "db"
+DB_FILE_NAME = "tlbc-monitor.db"
 SQLITE_URL_FORMAT = "sqlite:////{path}"
 
 
