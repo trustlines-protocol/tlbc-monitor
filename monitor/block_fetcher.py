@@ -3,7 +3,7 @@ from typing import Any, NamedTuple
 
 import structlog
 
-from monitor.db import AlreadyExists, ensure_branch, blocks_from_block_dicts
+from monitor.db import AlreadyExists
 
 
 class BlockFetcherStateV1(NamedTuple):
@@ -16,9 +16,7 @@ class BlockFetcher:
 
     logger = structlog.get_logger("monitor.block_fetcher")
 
-    def __init__(
-        self, state, w3, db, max_reorg_depth=1000, store_app_state=lambda _session: None
-    ):
+    def __init__(self, state, w3, db, max_reorg_depth=1000):
         self.w3 = w3
         self.db = db
         self.max_reorg_depth = max_reorg_depth
@@ -27,7 +25,6 @@ class BlockFetcher:
         self.current_branch = state.current_branch
 
         self.report_callbacks = []
-        self.store_app_state = store_app_state
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
@@ -63,24 +60,16 @@ class BlockFetcher:
         if blocks[0].number != 0 and not self.db.contains(blocks[0].parentHash):
             raise ValueError("Tried to insert block with unknown parent")
 
-        ensure_branch(blocks)
-        db_blocks = blocks_from_block_dicts(blocks)
-
-        session = self.db.session_class()
         try:
-            session.add_all(db_blocks)
+            self.db.insert_branch(blocks)
             # head and current branch will be saved as part of the app state,
             # change them before storing the app state
             self.head = blocks[-1]
             self.current_branch.clear()
-            self.store_app_state(session)
-            session.commit()
         except AlreadyExists:
             raise ValueError("Tried to insert already known block")
 
         self._run_callbacks(blocks)
-        self.store_app_state(session)
-        session.commit()
 
     def _insert_first_block(self):
         block = self.w3.eth.getBlock(0)

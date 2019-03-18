@@ -14,7 +14,7 @@ from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
 from eth_keys import keys
 
-from monitor.db import BlockDB, load_pickled, store_pickled
+from monitor.db import BlockDB
 from monitor.block_fetcher import BlockFetcher
 from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
@@ -119,9 +119,13 @@ class App:
         try:
             self.logger.info("starting sync")
             while self._running:
-                number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
-                    max_number_of_blocks=500
-                )
+                with self.db.persistent_session() as session:
+                    number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
+                        max_number_of_blocks=500
+                    )
+                    self.db.store_pickled("appstate", self.app_state)
+                    self.skip_file.flush()
+                    session.commit()
 
                 self.logger.info(
                     f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%)",
@@ -139,9 +143,6 @@ class App:
             "Stopping tlbc-monitor. This may take a long time, please be patient!"
         )
         self._running = False
-
-    def store_app_state_in_db(self, session):
-        store_pickled(session, "appstate", self.app_state)
 
     @property
     def app_state(self):
@@ -172,10 +173,7 @@ class App:
             self.get_primary_for_step = make_primary_function(validator_definition)
 
     def _initialize_reporters(self, skip_rate, offline_window_size):
-        app_state = (
-            load_pickled(self.db.session_class(), "appstate")
-            or self._initialize_app_state()
-        )
+        app_state = self.db.load_pickled("appstate") or self._initialize_app_state()
         if not isinstance(app_state, AppStateV1):
             raise RuntimeError("app_state has unexpected format")
 
@@ -184,7 +182,6 @@ class App:
             w3=self.w3,
             db=self.db,
             max_reorg_depth=MAX_REORG_DEPTH,
-            store_app_state=self.store_app_state_in_db,
         )
         self.skip_reporter = SkipReporter(
             state=app_state.skip_reporter_state,
