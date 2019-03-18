@@ -1,5 +1,6 @@
 from typing import Any
 import pickle
+import contextlib
 from web3.datastructures import AttributeDict
 
 from eth_utils.toolz import sliding_window
@@ -89,6 +90,17 @@ class BlockDB:
 
         self.session_class = sessionmaker(bind=self.engine)
         Base.metadata.create_all(self.engine)
+        self.current_session = None
+
+    def _get_session(self):
+        return self.current_session or self.session_class()
+
+    @contextlib.contextmanager
+    def persistent_session(self):
+        assert self.current_session is None
+        self.current_session = self.session_class()
+        yield self.current_session
+        self.current_session = None
 
     def insert(self, block_dict: AttributeDict) -> None:
         self.insert_branch([block_dict])
@@ -96,27 +108,39 @@ class BlockDB:
     def insert_branch(self, block_dicts):
         ensure_branch(block_dicts)
         blocks = blocks_from_block_dicts(block_dicts)
-        session = self.session_class()
+        session = self._get_session()
         session.add_all(blocks)
 
         try:
-            session.commit()
+            session.flush()
+            if self.current_session is None:
+                session.commit()
         except IntegrityError:
             raise AlreadyExists(
                 f"At least one block from the given branch already exists"
             )
 
     def is_empty(self):
-        session = self.session_class()
+        session = self._get_session()
         return not session.query(session.query(Block).exists()).scalar()
 
     def contains(self, block_hash: bytes) -> bool:
-        session = self.session_class()
+        session = self._get_session()
         return session.query(exists().where(Block.hash == block_hash)).scalar()
 
     def get_blocks_by_proposer_and_height(self, proposer: bytes, height: int):
-        session = self.session_class()
+        session = self._get_session()
         query = session.query(Block).filter(
             Block.proposer == proposer, Block.height == height
         )
         return query.all()
+
+    def store_pickled(self, name, obj):
+        session = self._get_session()
+        store_pickled(session, name, obj)
+        if self.current_session is None:
+            session.commit()
+
+    def load_pickled(self, name):
+        session = self._get_session()
+        return load_pickled(session, name)
