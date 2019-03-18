@@ -66,7 +66,7 @@ def ensure_branch(block_dicts):
 
 def load_pickled(session, name):
     """load the pickled NamedBlob object with the given name"""
-    named_blob = session.query(NamedBlob).filter_by(name=name).first()
+    named_blob = session.query(NamedBlob).get(name)
     if named_blob is None:
         return None
     else:
@@ -76,7 +76,7 @@ def load_pickled(session, name):
 def store_pickled(session, name, obj):
     """store the given python obj as pickled NamedBlob object under the given name"""
     pickled_state = pickle.dumps(obj)
-    named_blob = session.query(NamedBlob).filter_by(name=name).first()
+    named_blob = session.query(NamedBlob).get(name)
     if named_blob is None:
         named_blob = NamedBlob(name=name, blob=pickled_state)
     else:
