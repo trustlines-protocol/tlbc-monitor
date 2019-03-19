@@ -139,3 +139,50 @@ def test_empty_db_is_empty(empty_db):
 
 def test_non_empty_db_is_not_empty(populated_db):
     assert not populated_db.is_empty()
+
+
+def test_load_pickled_non_existing_key(empty_db):
+    assert empty_db.load_pickled("foo") is None
+
+
+def test_load_store_pickled(empty_db):
+    empty_db.store_pickled("foo", dict(bar=1))
+    assert empty_db.load_pickled("foo") == dict(bar=1)
+
+
+def test_store_pickled_existing(empty_db):
+    empty_db.store_pickled("foo", dict(bar=1))
+    empty_db.store_pickled("foo", dict(bar=2))
+    assert empty_db.load_pickled("foo") == dict(bar=2)
+
+
+def test_persistent_session(empty_db):
+    assert empty_db.current_session is None
+    with empty_db.persistent_session() as session:
+        assert empty_db.current_session is session
+    assert empty_db.current_session is None
+
+
+def test_session_handling_rollback(empty_db):
+    branch = make_branch(10)
+
+    with empty_db.persistent_session() as session:
+        empty_db.insert_branch(branch)
+        assert not empty_db.is_empty()
+        session.rollback()
+
+    assert empty_db.is_empty()
+
+
+def test_session_handling_commit(empty_db):
+    branch = make_branch(10)
+
+    with empty_db.persistent_session() as session:
+        empty_db.insert_branch(branch)
+        assert not empty_db.is_empty()
+        session.commit()
+
+    assert not empty_db.is_empty()
+
+    for block in branch:
+        assert empty_db.contains(block.hash)
