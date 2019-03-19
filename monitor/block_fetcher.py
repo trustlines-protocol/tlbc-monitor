@@ -62,8 +62,6 @@ class BlockFetcher:
 
         try:
             self.db.insert_branch(blocks)
-            # head and current branch will be saved as part of the app state,
-            # change them before storing the app state
             self.head = blocks[-1]
             self.current_branch.clear()
         except AlreadyExists:
