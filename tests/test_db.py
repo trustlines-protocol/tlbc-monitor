@@ -156,7 +156,7 @@ def test_store_pickled_existing(empty_db):
     assert empty_db.load_pickled("foo") == dict(bar=2)
 
 
-def test_persisten_session(empty_db):
+def test_persistent_session(empty_db):
     assert empty_db.current_session is None
     with empty_db.persistent_session() as session:
         assert empty_db.current_session is session
