@@ -197,6 +197,7 @@ class App:
         self.equivocation_reporter = EquivocationReporter(db=self.db)
 
     def _initialize_app_state(self):
+        self.logger.info("no state entry found, starting from genesis")
         return AppStateV1(
             block_fetcher_state=BlockFetcher.get_fresh_state(),
             skip_reporter_state=SkipReporter.get_fresh_state(),
