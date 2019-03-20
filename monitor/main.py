@@ -14,8 +14,9 @@ from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
 from eth_keys import keys
 
+from monitor import blocksel
 from monitor.db import BlockDB
-from monitor.block_fetcher import BlockFetcher
+from monitor.block_fetcher import BlockFetcher, format_block
 from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
@@ -93,7 +94,7 @@ class App:
         db_dir,
         skip_rate,
         offline_window_size,
-        initial_blocknr,
+        initial_block_resolver,
     ):
         self.report_dir = report_dir
         self.db_dir = db_dir
@@ -108,7 +109,7 @@ class App:
         self.skip_reporter = None
         self.offline_reporter = None
         self.equivocation_reporter = None
-        self.initial_blocknr = initial_blocknr
+        self.initial_block_resolver = initial_block_resolver
 
         self._initialize_db(self.db_dir / DB_FILE_NAME)
         self._initialize_w3(rpc_uri)
@@ -131,7 +132,7 @@ class App:
                     session.commit()
 
                 self.logger.info(
-                    f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%)",
+                    f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%) {format_block(self.block_fetcher.head)}",
                     head_hash=self.block_fetcher.head.hash,
                     head_number=self.block_fetcher.head.number,
                 )
@@ -185,7 +186,7 @@ class App:
             w3=self.w3,
             db=self.db,
             max_reorg_depth=MAX_REORG_DEPTH,
-            initial_blocknr=self.initial_blocknr,
+            initial_block_resolver=self.initial_block_resolver,
         )
         self.skip_reporter = SkipReporter(
             state=app_state.skip_reporter_state,
@@ -201,7 +202,7 @@ class App:
         self.equivocation_reporter = EquivocationReporter(db=self.db)
 
     def _initialize_app_state(self):
-        self.logger.info("no state entry found, starting from genesis")
+        self.logger.info("no state entry found, starting from fresh state")
         return AppStateV1(
             block_fetcher_state=BlockFetcher.get_fresh_state(),
             skip_reporter_state=SkipReporter.get_fresh_state(),
@@ -350,14 +351,7 @@ def validate_skip_rate(ctx, param, value):
     type=click.IntRange(min=0),
     help="size in seconds of the time window considered when determining if validators are offline or not",
 )
-@click.option(
-    "--sync-from-block",
-    "-s",
-    "initial_blocknr",
-    default=0,
-    show_default=True,
-    help="starting block",
-)
+@click.option("--sync-from", default="-35000", show_default=True, help="starting block")
 def main(
     rpc_uri,
     chain_spec_path,
@@ -365,8 +359,9 @@ def main(
     db_dir,
     skip_rate,
     offline_window_size_in_seconds,
-    initial_blocknr,
+    sync_from,
 ):
+    initial_block_resolver = blocksel.make_blockresolver(sync_from)
     offline_window_size_in_steps = offline_window_size_in_seconds // STEP_DURATION
     app = App(
         rpc_uri=rpc_uri,
@@ -375,7 +370,7 @@ def main(
         db_dir=Path(db_dir),
         skip_rate=skip_rate,
         offline_window_size=offline_window_size_in_steps,
-        initial_blocknr=initial_blocknr,
+        initial_block_resolver=initial_block_resolver,
     )
 
     signal.signal(signal.SIGTERM, lambda _signum, _frame: app.stop())

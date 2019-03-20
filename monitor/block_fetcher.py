@@ -1,9 +1,11 @@
+import datetime
 import itertools
 from typing import Any, NamedTuple
 
 import structlog
 
 from monitor.db import AlreadyExists
+from monitor import blocksel
 
 
 class BlockFetcherStateV1(NamedTuple):
@@ -11,12 +13,21 @@ class BlockFetcherStateV1(NamedTuple):
     current_branch: Any
 
 
+def format_block(block):
+    dt = datetime.datetime.utcfromtimestamp(block.timestamp).replace(
+        tzinfo=datetime.timezone.utc
+    )
+    return f"Block({block.number}, {dt.isoformat()})"
+
+
 class BlockFetcher:
     """Fetches new blocks via a web3 interface and passes them on to a set of callbacks."""
 
     logger = structlog.get_logger("monitor.block_fetcher")
 
-    def __init__(self, state, w3, db, max_reorg_depth=1000, initial_blocknr=0):
+    def __init__(
+        self, state, w3, db, max_reorg_depth=1000, initial_block_resolver=None
+    ):
         self.w3 = w3
         self.db = db
         self.max_reorg_depth = max_reorg_depth
@@ -25,7 +36,8 @@ class BlockFetcher:
         self.current_branch = state.current_branch
 
         self.report_callbacks = []
-        self.initial_blocknr = initial_blocknr
+        self.initial_block_resolver = initial_block_resolver
+        self.initial_blocknr = 0
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
@@ -73,13 +85,21 @@ class BlockFetcher:
         self._run_callbacks(blocks)
 
     def _insert_first_block(self):
-        if self.initial_blocknr < 0:
-            self.initial_blocknr = max(
-                0, self.w3.eth.blockNumber + self.initial_blocknr
+        resolver = self.initial_block_resolver or blocksel.ResolveGenesisBlock()
+        block = resolver.resolve_block(self.w3)
+        latest = self.w3.eth.getBlock("latest")
+        safe_initial_blocknr = max(latest.number - self.max_reorg_depth, 0)
+        if block.number > safe_initial_blocknr:
+            unsafe_block = block
+            block = self.w3.eth.getBlock(safe_initial_blocknr)
+            self.logger.warn(
+                f"choosing {format_block(block)} instead of {format_block(unsafe_block)}"
             )
+        self.initial_blocknr = block.number
 
-        self.logger.info(f"starting initial sync from block #{self.initial_blocknr}")
-        block = self.w3.eth.getBlock(self.initial_blocknr)
+        self.logger.info(
+            f"starting initial sync from {format_block(block)}, latest {format_block(latest)}"
+        )
         self._insert_branch([block])
 
     def fetch_and_insert_new_blocks(self, max_number_of_blocks=5000):
