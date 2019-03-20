@@ -39,8 +39,8 @@ def test_report_no_equivocation_for_a_single_branch(
     equivocation_reporter_with_callback,
     empty_db,
 ):
-    for height in range(1, branch_length):
-        block = make_block(proposer_privkey=block_proposer_one_privkey, height=height)
+    for step in range(1, branch_length):
+        block = make_block(proposer_privkey=block_proposer_one_privkey, step=step)
         empty_db.insert(block)
         equivocation_reporter_with_callback(block)
 
@@ -54,10 +54,10 @@ def test_report_no_equivocation_for_two_different_validators(
     equivocation_reporter_with_callback,
     empty_db,
 ):
-    height = 1
+    step = 1
 
-    block_one = make_block(proposer_privkey=block_proposer_one_privkey, height=height)
-    block_two = make_block(proposer_privkey=block_proposer_two_privkey, height=height)
+    block_one = make_block(proposer_privkey=block_proposer_one_privkey, step=step)
+    block_two = make_block(proposer_privkey=block_proposer_two_privkey, step=step)
 
     empty_db.insert(block_one)
     empty_db.insert(block_two)
@@ -76,11 +76,11 @@ def test_report_equivocation(
     equivocation_reporter_with_callback,
     empty_db,
 ):
-    height = 1
+    step = 1
     proposed_block_hashes = []
 
     for _ in range(0, number_of_blocks):
-        block = make_block(proposer_privkey=block_proposer_one_privkey, height=height)
+        block = make_block(proposer_privkey=block_proposer_one_privkey, step=step)
         empty_db.insert(block)
         equivocation_reporter_with_callback(block)
         proposed_block_hashes.append(bytes(block.hash))
