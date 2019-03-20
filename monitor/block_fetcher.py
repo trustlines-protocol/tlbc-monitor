@@ -16,7 +16,7 @@ class BlockFetcher:
 
     logger = structlog.get_logger("monitor.block_fetcher")
 
-    def __init__(self, state, w3, db, max_reorg_depth=1000):
+    def __init__(self, state, w3, db, max_reorg_depth=1000, initial_blocknr=0):
         self.w3 = w3
         self.db = db
         self.max_reorg_depth = max_reorg_depth
@@ -25,6 +25,7 @@ class BlockFetcher:
         self.current_branch = state.current_branch
 
         self.report_callbacks = []
+        self.initial_blocknr = initial_blocknr
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
@@ -57,7 +58,9 @@ class BlockFetcher:
         if len(blocks) == 0:
             return
 
-        if blocks[0].number != 0 and not self.db.contains(blocks[0].parentHash):
+        if blocks[0].number not in (0, self.initial_blocknr) and not self.db.contains(
+            blocks[0].parentHash
+        ):
             raise ValueError("Tried to insert block with unknown parent")
 
         try:
@@ -70,7 +73,13 @@ class BlockFetcher:
         self._run_callbacks(blocks)
 
     def _insert_first_block(self):
-        block = self.w3.eth.getBlock(0)
+        if self.initial_blocknr < 0:
+            self.initial_blocknr = max(
+                0, self.w3.eth.blockNumber + self.initial_blocknr
+            )
+
+        self.logger.info(f"starting initial sync from block #{self.initial_blocknr}")
+        block = self.w3.eth.getBlock(self.initial_blocknr)
         self._insert_branch([block])
 
     def fetch_and_insert_new_blocks(self, max_number_of_blocks=5000):
