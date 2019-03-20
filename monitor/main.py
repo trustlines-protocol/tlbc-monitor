@@ -45,7 +45,7 @@ MAX_REORG_DEPTH = (
 BLOCK_HASH_AND_TIMESTAMP_TEMPLATE = "{block_hash} ({block_timestamp})"
 EQUIVOCATION_REPORT_TEMPLATE = """\
 Proposer: {proposer_address}
-Block height: {block_height}
+Block step: {block_stpe}
 Detection time: {detection_time}
 
 Equivocated blocks:
@@ -236,7 +236,7 @@ class App:
         """Log a reported equivocation event.
 
         Equivocation reports are logged into files separated by the proposers
-        address. Logged information are the proposer of the blocks, the height
+        address. Logged information are the proposer of the blocks, the steps
         at which all blocks have been equivocated and a list of all block hashes
         with their timestamp. Additionally two representing blocks are logged
         with their RLP encoded header and related signature, which can be used
@@ -267,7 +267,7 @@ class App:
 
         equivocation_report_template_variables = {
             "proposer_address": proposer_address_hex,
-            "block_height": block_one.number,
+            "block_step": block_one.step,
             "detection_time": datetime.datetime.utcnow(),
             "block_hash_timestamp_summary": block_hash_and_timestamp_summary,
             "rlp_encoded_block_header_one": rlp_encoded_block(block_one),
