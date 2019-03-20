@@ -3,7 +3,6 @@ from eth_keys import keys
 from hexbytes import HexBytes
 from web3.datastructures import MutableAttributeDict
 from monitor.blocks import get_canonicalized_block, calculate_block_signature
-from eth_utils.toolz import sliding_window
 
 
 random_generator = random.Random(0)
@@ -21,8 +20,8 @@ def random_private_key():
     return keys.PrivateKey(random_hash())
 
 
-def random_block_height():
-    return random_generator.randint(0, 100)
+def random_step():
+    return random_generator.randint(0, 2**32)
 
 
 def make_block(
@@ -30,8 +29,7 @@ def make_block(
     block_hash=None,
     parent_hash=None,
     proposer_privkey=None,
-    height=None,
-    timestamp=0
+    step=None,
 ):
     if proposer_privkey is None:
         proposer_privkey = random_private_key()
@@ -48,10 +46,11 @@ def make_block(
             "receiptsRoot": HexBytes(random_hash()),
             "logsBloom": HexBytes(b"\x00" * 256),
             "difficulty": 0,
-            "number": height if height is not None else random_block_height(),
+            "number": 0,
             "gasLimit": 0,
             "gasUsed": 0,
-            "timestamp": timestamp,
+            "timestamp": 0,  # only needed to compute hash, not step
+            "step": str(step if step is not None else random_step()),
             "extraData": HexBytes(random_hash()),
             "privkey": proposer_privkey,  # add proposer private key to simplify testing.
             "signature": "",
@@ -65,8 +64,17 @@ def make_block(
 
 
 def make_branch(length):
+    steps = range(length)
+
     hashes = [random_hash() for _ in range(length)]
+    parent_hashes = [random_hash()] + hashes[:-1]
+
     return [
-        make_block(block_hash=child_hash, parent_hash=parent_hash, height=height)
-        for height, (parent_hash, child_hash) in enumerate(sliding_window(2, hashes))
+        make_block(
+            block_hash=child_hash,
+            parent_hash=parent_hash,
+            step=step,
+        )
+        for child_hash, parent_hash, step
+        in zip(hashes, parent_hashes, steps)
     ]

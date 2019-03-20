@@ -1,11 +1,12 @@
 import pytest
 
 from monitor.db import AlreadyExists
-from monitor.blocks import get_proposer, get_canonicalized_block
+from monitor.blocks import get_proposer, get_canonicalized_block, get_step
 
 from tests.data_generation import (
     random_address,
     random_private_key,
+    random_step,
     make_block,
     make_branch,
 )
@@ -67,23 +68,23 @@ def test_does_not_contain_not_inserted_block(populated_db):
         assert not populated_db.contains(block.hash)
 
 
-def test_retrieve_single_block_by_proposer_and_height(populated_db, inserted_blocks):
-    block = inserted_blocks[0]
-    proposer = get_proposer(get_canonicalized_block(block))
-    height = block.number
+def test_retrieve_single_block_by_proposer_and_step(populated_db, inserted_blocks):
+    for block in inserted_blocks:
+        proposer = get_proposer(get_canonicalized_block(block))
+        step = get_step(block)
 
-    retrieved_blocks = populated_db.get_blocks_by_proposer_and_height(proposer, height)
+        retrieved_blocks = populated_db.get_blocks_by_proposer_and_step(proposer, step)
 
-    assert len(retrieved_blocks) == 1
+        assert len(retrieved_blocks) == 1
 
-    retrieved_block = retrieved_blocks[0]
+        retrieved_block = retrieved_blocks[0]
 
-    assert retrieved_block.hash == block.hash
-    assert retrieved_block.height == height
-    assert retrieved_block.proposer == proposer
+        assert retrieved_block.hash == block.hash
+        assert retrieved_block.step == step
+        assert retrieved_block.proposer == proposer
 
 
-def test_retrieve_no_blocks_by_proposer_and_height_for_non_existing_combinations(
+def test_retrieve_no_blocks_by_proposer_and_step_for_non_existing_combinations(
     populated_db, inserted_blocks
 ):
     block = inserted_blocks[-1]
@@ -93,31 +94,29 @@ def test_retrieve_no_blocks_by_proposer_and_height_for_non_existing_combinations
         random_address()
     )  # Collision rate with an actual proposer is most like zero.
 
-    height = block.number
-    height_without_block = (
-        123
-    )  # This number is related to the random_block_height generation function.
+    step = get_step(block)
+    step_without_block = random_step()
 
-    assert not populated_db.get_blocks_by_proposer_and_height(
-        proposer, height_without_block
+    assert not populated_db.get_blocks_by_proposer_and_step(
+        proposer, step_without_block
     )
-    assert not populated_db.get_blocks_by_proposer_and_height(
-        proposer_without_block, height
+    assert not populated_db.get_blocks_by_proposer_and_step(
+        proposer_without_block, step
     )
 
 
-def test_retrieve_multiple_blocks_by_proposer_and_height(empty_db):
+def test_retrieve_multiple_blocks_by_proposer_and_step(empty_db):
     proposer_privkey = random_private_key()
     proposer = proposer_privkey.public_key.to_canonical_address()
-    height = 1
+    step = random_step()
 
-    block_one = make_block(proposer_privkey=proposer_privkey, height=height)
+    block_one = make_block(proposer_privkey=proposer_privkey, step=step)
     empty_db.insert(block_one)
 
-    block_two = make_block(proposer_privkey=proposer_privkey, height=height)
+    block_two = make_block(proposer_privkey=proposer_privkey, step=step)
     empty_db.insert(block_two)
 
-    retrieved_blocks = empty_db.get_blocks_by_proposer_and_height(proposer, height)
+    retrieved_blocks = empty_db.get_blocks_by_proposer_and_step(proposer, step)
 
     assert len(retrieved_blocks) == 2
 
@@ -129,8 +128,8 @@ def test_retrieve_multiple_blocks_by_proposer_and_height(empty_db):
     assert retrieved_block_one.proposer == proposer
     assert retrieved_block_two.proposer == proposer
 
-    assert retrieved_block_one.height == height
-    assert retrieved_block_two.height == height
+    assert retrieved_block_one.step == step
+    assert retrieved_block_two.step == step
 
 
 def test_empty_db_is_empty(empty_db):

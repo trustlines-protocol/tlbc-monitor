@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
 from sqlalchemy.exc import IntegrityError
 
-from monitor.blocks import get_canonicalized_block, get_proposer
+from monitor.blocks import get_canonicalized_block, get_proposer, get_step
 
 Base: Any = declarative_base()
 
@@ -33,7 +33,7 @@ class Block(Base):
 
     hash = Column(String(length=32), primary_key=True)
     proposer = Column(String(length=20), index=True)
-    height = Column(Integer, index=True)
+    step = Column(Integer, index=True)
 
 
 class NamedBlob(Base):
@@ -47,7 +47,7 @@ def blocks_from_block_dicts(block_dicts):
         Block(
             hash=block_dict.hash,
             proposer=get_proposer(get_canonicalized_block(block_dict)),
-            height=block_dict.number,
+            step=get_step(block_dict)
         )
         for block_dict in block_dicts
     ]
@@ -128,10 +128,10 @@ class BlockDB:
         session = self._get_session()
         return session.query(exists().where(Block.hash == block_hash)).scalar()
 
-    def get_blocks_by_proposer_and_height(self, proposer: bytes, height: int):
+    def get_blocks_by_proposer_and_step(self, proposer: bytes, step: int):
         session = self._get_session()
         query = session.query(Block).filter(
-            Block.proposer == proposer, Block.height == height
+            Block.proposer == proposer, Block.step == step
         )
         return query.all()
 
