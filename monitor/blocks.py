@@ -82,3 +82,7 @@ def calculate_block_signature(canonicalized_block, private_key):
     message = bare_hash(canonicalized_block)
     signature = private_key.sign_msg_hash(message)
     return signature
+
+
+def get_step(block_dict):
+    return int(block_dict.step)
