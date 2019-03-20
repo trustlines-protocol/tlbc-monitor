@@ -48,10 +48,7 @@ def test_get_proposer_of_genesis_block():
 
 @pytest.mark.parametrize(
     ["block", "step"],
-    zip(
-        [KOVAN_GENESIS_BLOCK] + KOVAN_BLOCKS,
-        [0, 372114854, 375469975, 377074489]
-    )
+    zip([KOVAN_GENESIS_BLOCK] + KOVAN_BLOCKS, [0, 372114854, 375469975, 377074489]),
 )
 def test_get_step(block, step):
     assert get_step(block) == step

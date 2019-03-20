@@ -115,7 +115,12 @@ class FakeAuraNormalizer(DefaultNormalizer):
 
     block_normalizers = {
         **BLOCK_NORMALIZERS,
-        **{"sealFields": identity, "author": encode_hex, "signature": encode_hex, "step": str},
+        **{
+            "sealFields": identity,
+            "author": encode_hex,
+            "signature": encode_hex,
+            "step": str,
+        },
     }
 
     @classmethod

@@ -47,7 +47,7 @@ def blocks_from_block_dicts(block_dicts):
         Block(
             hash=block_dict.hash,
             proposer=get_proposer(get_canonicalized_block(block_dict)),
-            step=get_step(block_dict)
+            step=get_step(block_dict),
         )
         for block_dict in block_dicts
     ]

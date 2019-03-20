@@ -21,16 +21,10 @@ def random_private_key():
 
 
 def random_step():
-    return random_generator.randint(0, 2**32)
+    return random_generator.randint(0, 2 ** 32)
 
 
-def make_block(
-    *,
-    block_hash=None,
-    parent_hash=None,
-    proposer_privkey=None,
-    step=None,
-):
+def make_block(*, block_hash=None, parent_hash=None, proposer_privkey=None, step=None):
     if proposer_privkey is None:
         proposer_privkey = random_private_key()
 
@@ -70,11 +64,6 @@ def make_branch(length):
     parent_hashes = [random_hash()] + hashes[:-1]
 
     return [
-        make_block(
-            block_hash=child_hash,
-            parent_hash=parent_hash,
-            step=step,
-        )
-        for child_hash, parent_hash, step
-        in zip(hashes, parent_hashes, steps)
+        make_block(block_hash=child_hash, parent_hash=parent_hash, step=step)
+        for child_hash, parent_hash, step in zip(hashes, parent_hashes, steps)
     ]
