@@ -1,7 +1,7 @@
 import structlog
 from eth_utils import encode_hex
 
-from monitor.blocks import get_proposer, get_canonicalized_block
+from monitor.blocks import get_proposer, get_canonicalized_block, get_step
 
 
 class EquivocationReporter:
@@ -26,21 +26,21 @@ class EquivocationReporter:
 
     def __call__(self, block):
         proposer = get_proposer(get_canonicalized_block(block))
-        height = block.number
-        blocks_by_same_proposer_on_same_height = self.db.get_blocks_by_proposer_and_height(
-            proposer, height
+        step = get_step(block)
+        blocks_by_same_proposer_at_same_step = self.db.get_blocks_by_proposer_and_step(
+            proposer, step
         )
-        block_hashes_by_same_proposer_on_same_height = [
-            block.hash for block in blocks_by_same_proposer_on_same_height
+        block_hashes_by_same_proposer_on_same_step = [
+            block.hash for block in blocks_by_same_proposer_at_same_step
         ]
 
         # Ensures that the block has been added to the database, otherwise the following logic will not work.
-        assert block.hash in block_hashes_by_same_proposer_on_same_height
+        assert block.hash in block_hashes_by_same_proposer_on_same_step
 
-        if len(block_hashes_by_same_proposer_on_same_height) >= 2:
+        if len(block_hashes_by_same_proposer_on_same_step) >= 2:
             self.logger.info(
-                "detected equivocation", proposer=encode_hex(proposer), height=height
+                "detected equivocation", proposer=encode_hex(proposer), step=step
             )
 
             for callback in self.report_callbacks:
-                callback(block_hashes_by_same_proposer_on_same_height)
+                callback(block_hashes_by_same_proposer_on_same_step)

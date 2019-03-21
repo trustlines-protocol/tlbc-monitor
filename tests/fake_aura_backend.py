@@ -38,7 +38,11 @@ class FakeAuraBackend(PyEVMBackend):
         return super().mine_blocks(num_blocks, coinbase)
 
     def get_block_with_aura_fields(self, block):
-        parity_fields = {"author": block["miner"], "sealFields": [b"", b""]}
+        parity_fields = {
+            "author": block["miner"],
+            "sealFields": [b"", b""],
+            "step": block["timestamp"],  # use step duration of 1 second
+        }
         block_with_parity_fields = AttributeDict({**block, **parity_fields})
         signature = self._get_signature_for_block(block_with_parity_fields)
         return {**block, **parity_fields, "signature": signature}
@@ -85,6 +89,11 @@ def validate_signature(signature):
         raise ValidationError("Signatures must have a length of 65 bytes")
 
 
+def validate_step(step):
+    if step < 0:
+        raise ValidationError("Step number must be non-negative")
+
+
 class FakeAuraValidator(DefaultValidator):
 
     block_validators = {
@@ -92,6 +101,7 @@ class FakeAuraValidator(DefaultValidator):
         **{
             "sealFields": validate_seal_fields,
             "author": validate_canonical_address,
+            "step": validate_step,
             "signature": validate_signature,
         },
     }
@@ -105,7 +115,12 @@ class FakeAuraNormalizer(DefaultNormalizer):
 
     block_normalizers = {
         **BLOCK_NORMALIZERS,
-        **{"sealFields": identity, "author": encode_hex, "signature": encode_hex},
+        **{
+            "sealFields": identity,
+            "author": encode_hex,
+            "signature": encode_hex,
+            "step": str,
+        },
     }
 
     @classmethod

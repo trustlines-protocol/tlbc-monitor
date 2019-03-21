@@ -5,6 +5,7 @@ from web3.datastructures import AttributeDict
 from monitor.blocks import (
     get_canonicalized_block,
     get_proposer,
+    get_step,
     calculate_block_signature,
 )
 
@@ -43,3 +44,11 @@ def test_signing(block, private_key):
 def test_get_proposer_of_genesis_block():
     canonicalized_genesis_block = get_canonicalized_block(KOVAN_GENESIS_BLOCK)
     assert get_proposer(canonicalized_genesis_block) == b"\x00" * 20
+
+
+@pytest.mark.parametrize(
+    ["block", "step"],
+    zip([KOVAN_GENESIS_BLOCK] + KOVAN_BLOCKS, [0, 372114854, 375469975, 377074489]),
+)
+def test_get_step(block, step):
+    assert get_step(block) == step
