@@ -351,7 +351,7 @@ def validate_skip_rate(ctx, param, value):
     type=click.IntRange(min=0),
     help="size in seconds of the time window considered when determining if validators are offline or not",
 )
-@click.option("--sync-from", default="-35000", show_default=True, help="starting block")
+@click.option("--sync-from", default="-1000", show_default=True, help="starting block")
 def main(
     rpc_uri,
     chain_spec_path,
