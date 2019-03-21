@@ -31,8 +31,7 @@ Options:
   -c, --chain-spec-path FILE      path to the chain spec file of the
                                   Trustlines blockchain  [required]
   -r, --report-dir DIRECTORY      path to the directory in which misbehavior
-                                  reports will be created  [default:
-                                  /home/ralf/trustlines/tlbc-monitor/reports]
+                                  reports will be created  [default: reports]
   -d, --db-dir DIRECTORY          path to the directory in which the database
                                   and application state will be stored
                                   [default: state]
