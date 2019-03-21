@@ -49,7 +49,7 @@ class ResolveLatestBlock(ResolveBlock):
 
     @classmethod
     def from_blockselector(cls, blocksel):
-        if blocksel not in ("latest", "-0"):
+        if blocksel != "latest":
             raise ValueError()
         return cls()
 
