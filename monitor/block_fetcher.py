@@ -13,6 +13,10 @@ class BlockFetcherStateV1(NamedTuple):
     current_branch: Any
 
 
+class FetchedBlockBeforeInitialOneError(Exception):
+    pass
+
+
 def format_block(block):
     dt = datetime.datetime.utcfromtimestamp(block.timestamp).replace(
         tzinfo=datetime.timezone.utc
@@ -186,6 +190,13 @@ class BlockFetcher:
         number_of_fetched_blocks = 0
         while not self.db.contains(self.current_branch[-1].parentHash):
             parent = self.w3.eth.getBlock(self.current_branch[-1].parentHash)
+
+            if parent.number < self.initial_blocknr:
+                self.logger.error(
+                    f"Fetched block with number {parent.number} < {self.initial_blocknr} (initial block number)!"
+                )
+                raise FetchedBlockBeforeInitialOneError()
+
             self.current_branch.append(parent)
 
             number_of_fetched_blocks += 1

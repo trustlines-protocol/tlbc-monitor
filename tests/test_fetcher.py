@@ -1,7 +1,8 @@
 import pytest
 from unittest.mock import Mock, call
 
-from monitor.block_fetcher import BlockFetcher
+from monitor.block_fetcher import BlockFetcher, FetchedBlockBeforeInitialOneError
+from monitor.blocksel import ResolveBlockByNumber
 
 
 @pytest.fixture
@@ -125,6 +126,32 @@ def test_noticed_reorg(w3, eth_tester, block_fetcher, report_callback):
         report_callback.call_args_list
         == common_reports + fork_a_reports + fork_b_reports
     )
+
+
+def test_fail_on_fetching_block_before_inital_one(
+    block_fetcher, eth_tester, max_reorg_depth
+):
+    initial_block_number = 10
+    block_fetcher.initial_block_resolver = ResolveBlockByNumber(initial_block_number)
+    coinbase1, coinbase2 = eth_tester.get_accounts()[:2]
+
+    # Create first branch
+    # Make sure that the fork height will be early enough, so the initial block
+    # number will be not affected by the max_reorg_depth.
+    eth_tester.mine_blocks(initial_block_number - 1, coinbase=coinbase1)
+    fork_snapshot_id = eth_tester.take_snapshot()
+    eth_tester.mine_blocks(max_reorg_depth + 1, coinbase=coinbase1)
+
+    # Fetch branch from initial block number.
+    block_fetcher.fetch_and_insert_new_blocks()
+
+    # Create fork based on block before initial synced one.
+    eth_tester.revert_to_snapshot(fork_snapshot_id)
+    eth_tester.mine_block(coinbase=coinbase2)
+
+    # Try to fetch blocks based on the new fork.
+    with pytest.raises(FetchedBlockBeforeInitialOneError):
+        block_fetcher.fetch_and_insert_new_blocks()
 
 
 def test_rediscovered_reorg(w3, eth_tester, block_fetcher, report_callback):
