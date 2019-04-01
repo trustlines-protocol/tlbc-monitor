@@ -11,6 +11,7 @@ from monitor import blocksel
 class BlockFetcherStateV1(NamedTuple):
     head: Any
     current_branch: Any
+    initial_blocknr: int
 
 
 class FetchedBlockBeforeInitialOneError(Exception):
@@ -41,7 +42,7 @@ class BlockFetcher:
 
         self.report_callbacks = []
         self.initial_block_resolver = initial_block_resolver
-        self.initial_blocknr = 0
+        self.initial_blocknr = state.initial_blocknr
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
@@ -49,11 +50,15 @@ class BlockFetcher:
 
     @classmethod
     def get_fresh_state(cls):
-        return BlockFetcherStateV1(head=None, current_branch=[])
+        return BlockFetcherStateV1(head=None, current_branch=[], initial_blocknr=0)
 
     @property
     def state(self):
-        return BlockFetcherStateV1(head=self.head, current_branch=self.current_branch)
+        return BlockFetcherStateV1(
+            head=self.head,
+            current_branch=self.current_branch,
+            initial_blocknr=self.initial_blocknr,
+        )
 
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
@@ -90,7 +95,11 @@ class BlockFetcher:
 
     def _insert_first_block(self):
         resolver = self.initial_block_resolver or blocksel.ResolveGenesisBlock()
-        block = resolver.resolve_block(self.w3)
+        block = (
+            self.w3.eth.getBlock(self.initial_blocknr)
+            if self.initial_blocknr
+            else resolver.resolve_block(self.w3)
+        )
         latest = self.w3.eth.getBlock("latest")
         safe_initial_blocknr = max(latest.number - self.max_reorg_depth, 0)
         if block.number > safe_initial_blocknr:
