@@ -59,6 +59,14 @@ def test_number_of_fetched_blocks(eth_tester, block_fetcher):
     assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
 
 
+def test_fail_to_sync_from_block_number_that_does_not_exist(block_fetcher):
+    # Work on the chain with only the genesis block.
+    block_fetcher.initial_block_resolver = ResolveBlockByNumber(1)
+
+    with pytest.raises(ValueError):
+        block_fetcher.fetch_and_insert_new_blocks()
+
+
 def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_callback):
     eth_tester.mine_blocks(10)
 

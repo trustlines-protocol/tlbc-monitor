@@ -100,6 +100,10 @@ class BlockFetcher:
             if self.initial_blocknr
             else resolver.resolve_block(self.w3)
         )
+
+        if not block:
+            raise ValueError("Can't fetch initial block to sync from!")
+
         latest = self.w3.eth.getBlock("latest")
         safe_initial_blocknr = max(latest.number - self.max_reorg_depth, 0)
         if block.number > safe_initial_blocknr:
