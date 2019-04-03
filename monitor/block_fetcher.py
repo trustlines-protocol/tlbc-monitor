@@ -14,7 +14,7 @@ class BlockFetcherStateV1(NamedTuple):
     initial_blocknr: int
 
 
-class FetchedBlockBeforeInitialOneError(Exception):
+class FetchingForkWithUnkownBaseError(Exception):
     pass
 
 
@@ -82,7 +82,9 @@ class BlockFetcher:
         if blocks[0].number not in (0, self.initial_blocknr) and not self.db.contains(
             blocks[0].parentHash
         ):
-            raise ValueError("Tried to insert block with unknown parent")
+            raise FetchingForkWithUnkownBaseError(
+                "Tried to insert branch from a fork with unknown parent block."
+            )
 
         try:
             self.db.insert_branch(blocks)
@@ -206,9 +208,11 @@ class BlockFetcher:
 
             if parent.number < self.initial_blocknr:
                 self.logger.error(
-                    f"Fetched block with number {parent.number} < {self.initial_blocknr} (initial block number)!"
+                    f"Fetched block with number {parent.number} < {self.initial_blocknr} (initial block number) on syncing backwards!"
                 )
-                raise FetchedBlockBeforeInitialOneError()
+                raise FetchingForkWithUnkownBaseError(
+                    "Synchronized backwards on a fork with base before initial synchronized block!"
+                )
 
             self.current_branch.append(parent)
 
