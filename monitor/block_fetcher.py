@@ -97,11 +97,7 @@ class BlockFetcher:
 
     def _insert_first_block(self):
         resolver = self.initial_block_resolver or blocksel.ResolveGenesisBlock()
-        block = (
-            self.w3.eth.getBlock(self.initial_blocknr)
-            if self.initial_blocknr
-            else resolver.resolve_block(self.w3)
-        )
+        block = resolver.resolve_block(self.w3)
 
         if not block:
             raise ValueError("Can't fetch initial block to sync from!")
@@ -154,9 +150,6 @@ class BlockFetcher:
 
     def fetch_forward_sync_target(self):
         return max(self.w3.eth.blockNumber - self.max_reorg_depth, 0)
-
-    def _should_sync_forwards(self, current_block_number):
-        return current_block_number - self.head.number > self.max_reorg_depth
 
     def _sync_forwards(self, max_number_of_blocks):
         block_numbers_to_fetch = range(
