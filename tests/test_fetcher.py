@@ -1,7 +1,8 @@
 import pytest
 from unittest.mock import Mock, call
 
-from monitor.block_fetcher import BlockFetcher
+from monitor.block_fetcher import BlockFetcher, FetchingForkWithUnkownBaseError
+from monitor.blocksel import ResolveBlockByNumber, ResolveGenesisBlock
 
 
 @pytest.fixture
@@ -56,6 +57,14 @@ def test_number_of_fetched_blocks(eth_tester, block_fetcher):
     )  # genesis + mined blocks
     eth_tester.mine_blocks(5)
     assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
+
+
+def test_fail_to_sync_from_block_number_that_does_not_exist(block_fetcher):
+    # Work on the chain with only the genesis block.
+    block_fetcher.initial_block_resolver = ResolveBlockByNumber(1)
+
+    with pytest.raises(ValueError):
+        block_fetcher.fetch_and_insert_new_blocks()
 
 
 def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_callback):
@@ -125,6 +134,131 @@ def test_noticed_reorg(w3, eth_tester, block_fetcher, report_callback):
         report_callback.call_args_list
         == common_reports + fork_a_reports + fork_b_reports
     )
+
+
+@pytest.mark.parametrize(
+    "max_reorg_depth, number_of_reorged_blocks", [(1, 1), (1, 10), (5, 1), (5, 30)]
+)
+def test_fail_on_fetching_fork_when_sync_forwards(
+    block_fetcher, eth_tester, max_reorg_depth, number_of_reorged_blocks
+):
+    """Test behavior on forks while sync forwards.
+
+    The block fetcher synchronize the whole chain. Afterwards the blockchain
+    becomes reorganized by a parametrized number of blocks. The block fetcher is
+    idle for that many blocks on the new fork, that forward syncing will be
+    used. This should fail due to fetching blocks from a fork without any hash
+    pointer to the old branch.
+
+    TODO: In future the fetcher should be safe against reorganizations by less
+    blocks than the configured max_reorg_depth, which is not the case as shown
+    here.
+    """
+
+    block_fetcher.max_reorg_depth = max_reorg_depth
+    block_fetcher.initial_block_resolver = ResolveGenesisBlock()
+    coinbase1, coinbase2 = eth_tester.get_accounts()[:2]
+
+    # Create first branch at least as long as the max_reorg_depth
+    length_first_branch = max(max_reorg_depth, number_of_reorged_blocks)
+    eth_tester.mine_blocks(length_first_branch - number_of_reorged_blocks)
+    fork_snapshot_id = eth_tester.take_snapshot()
+    eth_tester.mine_blocks(number_of_reorged_blocks, coinbase=coinbase1)
+
+    # Fetch first branch considered as safe.
+    block_fetcher.fetch_and_insert_new_blocks()
+
+    # Create fork with enough blocks to synchronize forward.
+    eth_tester.revert_to_snapshot(fork_snapshot_id)
+    eth_tester.mine_blocks(
+        number_of_reorged_blocks + max_reorg_depth + 2, coinbase=coinbase2
+    )
+
+    #  Try to fetch blocks based on the new fork.
+    with pytest.raises(FetchingForkWithUnkownBaseError):
+        block_fetcher.fetch_and_insert_new_blocks()
+
+
+@pytest.mark.parametrize(
+    (
+        "max_reorg_depth",
+        "initial_block_number",
+        "number_of_blocks_before_initial_height_to_fork",
+        "number_of_blocks_on_fork_after_initial_block",
+    ),
+    [
+        # Default random constellation as base
+        (3, 10, 2, 2),
+        # Minimum initial_block_number related to number_of_blocks_before_initial_height_to_fork
+        (3, 2, 2, 2),
+        # Random height value for initial_block_number
+        (3, 30, 2, 2),
+        # Minimal number_of_blocks_before_initial_height_to_fork
+        (3, 10, 1, 2),
+        # Maximum number_of_blocks_before_initial_height_to_fork related to initial_block_number
+        (3, 10, 10, 2),
+        # Minimum number_of_blocks_on_fork_after_initial_block
+        (3, 10, 2, 1),
+        # Maximum number_of_blocks_on_fork_after_initial_block related related to max_reorg_path
+        (3, 10, 2, 4),
+    ],
+)
+def test_fail_on_fetching_fork_based_on_block_before_inital_one_when_sync_backwards(
+    block_fetcher,
+    eth_tester,
+    max_reorg_depth,
+    initial_block_number,
+    number_of_blocks_before_initial_height_to_fork,
+    number_of_blocks_on_fork_after_initial_block,
+):
+    """Test behavior on forks to blocks before initial block while sync backwards.
+
+    Notice that the max_reorg_depth is artificially set to a not safe enough
+    value here.
+    The block fetcher synchronize the chain from the initial chain
+    up to the head. Afterwards the blockchain becomes reorganized based on
+    a block before the initial synced one. Trying to sync backwards on the new
+    fork should fail.
+    The parametrization describes the range of constellations in which the block
+    fetcher will synchronize backwards after the chain has forked.
+    """
+
+    # Ensure that parameter lead to backward syncing.
+    assert number_of_blocks_before_initial_height_to_fork <= initial_block_number
+    assert number_of_blocks_on_fork_after_initial_block <= max_reorg_depth + 1
+
+    block_fetcher.max_reorg_depth = max_reorg_depth
+    block_fetcher.initial_block_resolver = ResolveBlockByNumber(initial_block_number)
+    coinbase1, coinbase2 = eth_tester.get_accounts()[:2]
+
+    # Create first branch
+    # Make sure to seal enough blocks after the original initial_block_number,
+    # to make sure it get not adjusted to a save version by the max_reorg_depth.
+    eth_tester.mine_blocks(
+        initial_block_number - number_of_blocks_before_initial_height_to_fork,
+        coinbase=coinbase1,
+    )
+    fork_snapshot_id = eth_tester.take_snapshot()
+    eth_tester.mine_blocks(
+        number_of_blocks_before_initial_height_to_fork + max_reorg_depth,
+        coinbase=coinbase1,
+    )
+
+    # Fetch branch from initial block number.
+    block_fetcher.fetch_and_insert_new_blocks()
+
+    # Create fork based on block before initial synced one with less enough
+    # blocks to synchronize backward.
+    eth_tester.revert_to_snapshot(fork_snapshot_id)
+    eth_tester.mine_blocks(
+        number_of_blocks_before_initial_height_to_fork
+        + number_of_blocks_on_fork_after_initial_block,
+        coinbase=coinbase2,
+    )
+
+    #  Try to fetch blocks based on the new fork.
+    with pytest.raises(FetchingForkWithUnkownBaseError):
+        block_fetcher.fetch_and_insert_new_blocks()
 
 
 def test_rediscovered_reorg(w3, eth_tester, block_fetcher, report_callback):

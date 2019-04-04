@@ -11,6 +11,11 @@ from monitor import blocksel
 class BlockFetcherStateV1(NamedTuple):
     head: Any
     current_branch: Any
+    initial_blocknr: int
+
+
+class FetchingForkWithUnkownBaseError(Exception):
+    pass
 
 
 def format_block(block):
@@ -37,7 +42,7 @@ class BlockFetcher:
 
         self.report_callbacks = []
         self.initial_block_resolver = initial_block_resolver
-        self.initial_blocknr = 0
+        self.initial_blocknr = state.initial_blocknr
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
@@ -45,11 +50,15 @@ class BlockFetcher:
 
     @classmethod
     def get_fresh_state(cls):
-        return BlockFetcherStateV1(head=None, current_branch=[])
+        return BlockFetcherStateV1(head=None, current_branch=[], initial_blocknr=0)
 
     @property
     def state(self):
-        return BlockFetcherStateV1(head=self.head, current_branch=self.current_branch)
+        return BlockFetcherStateV1(
+            head=self.head,
+            current_branch=self.current_branch,
+            initial_blocknr=self.initial_blocknr,
+        )
 
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
@@ -73,7 +82,9 @@ class BlockFetcher:
         if blocks[0].number not in (0, self.initial_blocknr) and not self.db.contains(
             blocks[0].parentHash
         ):
-            raise ValueError("Tried to insert block with unknown parent")
+            raise FetchingForkWithUnkownBaseError(
+                "Tried to insert branch from a fork with unknown parent block."
+            )
 
         try:
             self.db.insert_branch(blocks)
@@ -87,6 +98,10 @@ class BlockFetcher:
     def _insert_first_block(self):
         resolver = self.initial_block_resolver or blocksel.ResolveGenesisBlock()
         block = resolver.resolve_block(self.w3)
+
+        if not block:
+            raise ValueError("Can't fetch initial block to sync from!")
+
         latest = self.w3.eth.getBlock("latest")
         safe_initial_blocknr = max(latest.number - self.max_reorg_depth, 0)
         if block.number > safe_initial_blocknr:
@@ -136,9 +151,6 @@ class BlockFetcher:
     def fetch_forward_sync_target(self):
         return max(self.w3.eth.blockNumber - self.max_reorg_depth, 0)
 
-    def _should_sync_forwards(self, current_block_number):
-        return current_block_number - self.head.number > self.max_reorg_depth
-
     def _sync_forwards(self, max_number_of_blocks):
         block_numbers_to_fetch = range(
             self.head.number + 1, self.head.number + 1 + max_number_of_blocks
@@ -167,12 +179,28 @@ class BlockFetcher:
 
         return number_of_fetched_blocks
 
+    def _get_block(self, blocknr_or_hash):
+        """call self.w3.eth.getBlock, but make sure we don't fetch a block
+        before the initial block"""
+        block = self.w3.eth.getBlock(blocknr_or_hash)
+        assert block is not None, f"Could not fetch block {blocknr_or_hash}"
+
+        if block.number < self.initial_blocknr:
+            self.logger.error(
+                f"Fetched block with number {block.number} < {self.initial_blocknr} (initial block number) on syncing backwards!"
+            )
+            raise FetchingForkWithUnkownBaseError(
+                "Synchronized backwards on a fork with base before initial synchronized block!"
+            )
+
+        return block
+
     def _fetch_branch(self, max_blocks_to_fetch):
         if max_blocks_to_fetch <= 0:
             raise ValueError("Maximum number of blocks to fetch must be positive")
 
         if len(self.current_branch) == 0:
-            head = self.w3.eth.getBlock("latest")
+            head = self._get_block("latest")
             if self.db.contains(head.hash):
                 self.logger.info(
                     "no new blocks",
@@ -185,7 +213,7 @@ class BlockFetcher:
 
         number_of_fetched_blocks = 0
         while not self.db.contains(self.current_branch[-1].parentHash):
-            parent = self.w3.eth.getBlock(self.current_branch[-1].parentHash)
+            parent = self._get_block(self.current_branch[-1].parentHash)
             self.current_branch.append(parent)
 
             number_of_fetched_blocks += 1
