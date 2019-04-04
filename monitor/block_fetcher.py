@@ -179,12 +179,28 @@ class BlockFetcher:
 
         return number_of_fetched_blocks
 
+    def _get_block(self, blocknr_or_hash):
+        """call self.w3.eth.getBlock, but make sure we don't fetch a block
+        before the initial block"""
+        block = self.w3.eth.getBlock(blocknr_or_hash)
+        assert block is not None, f"Could not fetch block {blocknr_or_hash}"
+
+        if block.number < self.initial_blocknr:
+            self.logger.error(
+                f"Fetched block with number {block.number} < {self.initial_blocknr} (initial block number) on syncing backwards!"
+            )
+            raise FetchingForkWithUnkownBaseError(
+                "Synchronized backwards on a fork with base before initial synchronized block!"
+            )
+
+        return block
+
     def _fetch_branch(self, max_blocks_to_fetch):
         if max_blocks_to_fetch <= 0:
             raise ValueError("Maximum number of blocks to fetch must be positive")
 
         if len(self.current_branch) == 0:
-            head = self.w3.eth.getBlock("latest")
+            head = self._get_block("latest")
             if self.db.contains(head.hash):
                 self.logger.info(
                     "no new blocks",
@@ -197,16 +213,7 @@ class BlockFetcher:
 
         number_of_fetched_blocks = 0
         while not self.db.contains(self.current_branch[-1].parentHash):
-            parent = self.w3.eth.getBlock(self.current_branch[-1].parentHash)
-
-            if parent.number < self.initial_blocknr:
-                self.logger.error(
-                    f"Fetched block with number {parent.number} < {self.initial_blocknr} (initial block number) on syncing backwards!"
-                )
-                raise FetchingForkWithUnkownBaseError(
-                    "Synchronized backwards on a fork with base before initial synchronized block!"
-                )
-
+            parent = self._get_block(self.current_branch[-1].parentHash)
             self.current_branch.append(parent)
 
             number_of_fetched_blocks += 1
