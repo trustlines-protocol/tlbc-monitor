@@ -1,3 +1,13 @@
+# This will build the currently checked out version
+#
+# we use an intermediate image to build this image. it will make the resulting
+# image a bit smaller.
+#
+# you can build the image with:
+#
+#    docker build -t tlbc-monitor .
+
+
 FROM ubuntu:18.04 as builder
 # python needs LANG
 ENV LANG C.UTF-8
