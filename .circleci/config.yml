@@ -1,5 +1,10 @@
 version: 2.1
 
+templates:
+  tagged-filter: &tagged-filter
+    tags:
+      only: /[0-9]+(\.[0-9]+)*/
+
 executors:
   ubuntu-builder:
     docker:
@@ -147,6 +152,9 @@ jobs:
           path: test-reports
   build-docker-image:
     executor: ubuntu-builder
+    environment:
+      LOCAL_IMAGE: tlbc-monitor
+
     working_directory: ~/repo
     steps:
       - setup_remote_docker
@@ -155,25 +163,92 @@ jobs:
           name: Build docker image
           command: |
             docker build . -t tlbc-monitor
+      - run:
+          name: Save docker image
+          command: |
+            mkdir -p ~/images
+            docker save --output ~/images/$LOCAL_IMAGE.tar $LOCAL_IMAGE
+      - persist_to_workspace:
+          root: "~"
+          paths:
+            - images
+
+  deploy-docker-image:
+    executor: ubuntu-builder
+    environment:
+      DOCKER_REPO: trustlines/tlbc-monitor
+      LOCAL_IMAGE: tlbc-monitor
+    working_directory: ~/repo
+    steps:
+      - setup_remote_docker
+      - attach_workspace:
+          at: '~'
+      - run:
+          name: Load docker image
+          command: |
+            docker load --input ~/images/$LOCAL_IMAGE.tar
+      - run:
+          name: Login to dockerhub
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
+      - run:
+          name: Upload tagged release
+          command: |
+            version=$(docker run --rm $LOCAL_IMAGE --version | tr '+' '_')
+            echo "Tagging with $version"
+            docker tag $LOCAL_IMAGE $DOCKER_REPO:$version
+            docker push $DOCKER_REPO:$version
+      - run:
+          name: Upload latest
+          command: |
+            docker tag $LOCAL_IMAGE $DOCKER_REPO:latest
+            docker push $DOCKER_REPO:latest
 
 workflows:
   version: 2
   default:
     jobs:
-      - prepare-system
+      - prepare-system:
+          filters:
+            <<: *tagged-filter
       - run-flake8:
+          filters:
+            <<: *tagged-filter
           requires:
             - prepare-system
       - install:
+          filters:
+            <<: *tagged-filter
           requires:
             - prepare-system
       - run-pytest:
+          filters:
+            <<: *tagged-filter
           requires:
             - install
       - run-mypy:
+          filters:
+            <<: *tagged-filter
           requires:
             - install
       - run-black:
+          filters:
+            <<: *tagged-filter
           requires:
             - install
-      - build-docker-image
+      - build-docker-image:
+          filters:
+            <<: *tagged-filter
+      - deploy-docker-image:
+          filters:
+            <<: *tagged-filter
+            branches:
+              only: master
+          requires:
+            - run-flake8
+            - run-black
+            - run-pytest
+            - run-mypy
+            - install
+            - build-docker-image
+          context: docker-credentials
