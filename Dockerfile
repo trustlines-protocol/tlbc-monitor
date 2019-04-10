@@ -1,6 +1,17 @@
+# This will build the currently checked out version
+#
+# we use an intermediate image to build this image. it will make the resulting
+# image a bit smaller.
+#
+# you can build the image with:
+#
+#    docker build -t tlbc-monitor .
+
+
 FROM ubuntu:18.04 as builder
 # python needs LANG
 ENV LANG C.UTF-8
+ENV PIP_DISABLE_PIP_VERSION_CHECK 1
 
 RUN apt-get update \
     && apt-get install -y apt-utils python3 python3-distutils python3-dev python3-venv git \
@@ -8,7 +19,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/tlbc-monitor
-RUN /opt/tlbc-monitor/bin/pip install pip==18.0.0 setuptools==40.0.0
+RUN /opt/tlbc-monitor/bin/pip install pip==19.0.3 setuptools==41.0.0 wheel==0.33.1
 
 COPY ./constraints.txt /tlbc-monitor/constraints.txt
 COPY ./requirements.txt /tlbc-monitor/requirements.txt

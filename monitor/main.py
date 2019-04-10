@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import signal
 import time
+import pkg_resources
 
 from typing import Any, NamedTuple
 
@@ -302,6 +303,21 @@ def validate_skip_rate(ctx, param, value):
     return value
 
 
+def get_version():
+    return pkg_resources.get_distribution("tlbc-monitor").version
+
+
+def _show_version(ctx, param, value):
+    """handle --version argumemt
+
+    we need this function, because otherwise click may check that the default
+    --config or --addresses arguments are really files and they may not
+    exist"""
+    if value:
+        click.echo(get_version())
+        ctx.exit()
+
+
 @click.command()
 @click.option(
     "--rpc-uri",
@@ -352,7 +368,15 @@ def validate_skip_rate(ctx, param, value):
     help="size in seconds of the time window considered when determining if validators are offline or not",
 )
 @click.option("--sync-from", default="-1000", show_default=True, help="starting block")
+@click.option(
+    "--version",
+    help="Print tlbc-monitor version information",
+    is_flag=True,
+    callback=_show_version,
+)
+@click.pass_context
 def main(
+    ctx,
     rpc_uri,
     chain_spec_path,
     report_dir,
