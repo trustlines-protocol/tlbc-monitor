@@ -11,6 +11,7 @@
 FROM ubuntu:18.04 as builder
 # python needs LANG
 ENV LANG C.UTF-8
+ENV PIP_DISABLE_PIP_VERSION_CHECK 1
 
 RUN apt-get update \
     && apt-get install -y apt-utils python3 python3-distutils python3-dev python3-venv git \
