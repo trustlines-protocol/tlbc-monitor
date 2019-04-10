@@ -19,7 +19,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/tlbc-monitor
-RUN /opt/tlbc-monitor/bin/pip install pip==18.0.0 setuptools==40.0.0
+RUN /opt/tlbc-monitor/bin/pip install pip==19.0.3 setuptools==41.0.0 wheel==0.33.1
 
 COPY ./constraints.txt /tlbc-monitor/constraints.txt
 COPY ./requirements.txt /tlbc-monitor/requirements.txt
