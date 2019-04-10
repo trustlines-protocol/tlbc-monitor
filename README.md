@@ -57,8 +57,15 @@ synchronization starts. It can be given in multiple ways:
 Please note that the actual block being used will differ, if the selected block
 is less than 1000 blocks away from the latest block.
 
-In production, the monitor will usually run inside a Docker container and interact with another container housing a Parity client connected to the Trustlines blockchain. Here's a command typical for such a setting:
+In production, the monitor will usually run inside a Docker container and
+interact with another container housing a Parity client connected to the
+Trustlines blockchain.
+
+Here's a list of commands that will start the tlbc-monitoring service in case
+you're running our recommended validator setup:
 
 ```
-docker run -v </path/to/chain-spec.json>:/config/chain-spec.json -v </path/to/reports/dir>:/reports tlbc-monitor -c /config/chain-spec.json -u http://172.17.0.2:8545 -r /reports -o 0.5
+docker cp trustlines-testnet:/config/trustlines-spec.json .
+mkdir reports state
+docker run --name monitor -d --restart=always --link trustlines-testnet:parity -v $(pwd)/trustlines-spec.json:/config/trustlines-spec.json -v$(pwd)/reports:/reports -v$(pwd)/state:/state trustlines/tlbc-monitor -c /config/trustlines-spec.json -r /reports -d /state -u http://parity:8545 -o 0.5
 ```
