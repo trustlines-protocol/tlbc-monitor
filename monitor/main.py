@@ -384,6 +384,7 @@ def main(
     skip_rate,
     offline_window_size_in_seconds,
     sync_from,
+    version,
 ):
     initial_block_resolver = blocksel.make_blockresolver(sync_from)
     offline_window_size_in_steps = offline_window_size_in_seconds // STEP_DURATION
