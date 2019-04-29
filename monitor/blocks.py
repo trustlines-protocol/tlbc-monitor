@@ -26,6 +26,7 @@ def get_canonicalized_block(block_dict):
             "gasLimit": block_dict.gasLimit,
             "gasUsed": block_dict.gasUsed,
             "timestamp": block_dict.timestamp,
+            "step": int(block_dict.step),
             "extraData": bytes(block_dict.extraData),
             "sealFields": block_dict.sealFields,
             "signature": decode_hex(block_dict.signature),

@@ -47,7 +47,7 @@ MAX_REORG_DEPTH = (
 BLOCK_HASH_AND_TIMESTAMP_TEMPLATE = "{block_hash} ({block_timestamp})"
 EQUIVOCATION_REPORT_TEMPLATE = """\
 Proposer: {proposer_address}
-Block step: {block_stpe}
+Block step: {block_step}
 Detection time: {detection_time}
 
 Equivocated blocks:
