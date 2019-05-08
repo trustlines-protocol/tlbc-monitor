@@ -1,6 +1,13 @@
 from collections.abc import Mapping
+import operator
+from typing import NamedTuple, List, Optional
 
-from eth_utils import is_hex_address, to_canonical_address
+from web3 import Web3
+
+from eth_utils import is_hex_address
+
+
+VALIDATOR_CONTRACT_ABI = None
 
 
 def validate_validator_definition(validator_definition):
@@ -33,28 +40,93 @@ def validate_validator_definition(validator_definition):
             raise ValueError("Multi list entries must only contain hex addresses")
 
 
-def make_primary_function(validator_definition):
-    validate_validator_definition(validator_definition)
+class Epoch(NamedTuple):
+    start_height: int
+    validators: List[bytes]
 
-    multi_list = {}
-    for start_block_number_str, multi_list_entry in validator_definition[
-        "multi"
-    ].items():
-        start_block_number = int(start_block_number_str)
-        addresses = [
-            to_canonical_address(address) for address in multi_list_entry["list"]
+
+class ValidatorDefinitionRange(NamedTuple):
+    transition_to_height: int
+    transition_from_height: int
+    is_contract: bool
+    contract_address: Optional[bytes]
+    validators: Optional[List[bytes]]
+
+
+class PrimaryOracle:
+    def __init__(self) -> None:
+        self._epochs: List[Epoch] = []
+
+    def get_primary(self, *, step: int, block_height: int):
+        validators = self._get_validators(block_height)
+        index = step % len(validators)
+        return validators[index]
+
+    def _get_validators(self, block_height: int) -> List[bytes]:
+        started_epochs = [
+            epoch for epoch in self._epochs if epoch.start_height < block_height
         ]
-        multi_list[start_block_number] = addresses
+        return started_epochs[-1].validators
 
-    descending_start_block_numbers = sorted(multi_list.keys(), reverse=True)
+    def add_epoch(self, epoch: Epoch) -> None:
+        unsorted_epochs = self._epochs + [epoch]
+        sorted_epochs = sorted(unsorted_epochs, key=operator.attrgetter("start_height"))
+        self._epochs = sorted_epochs
 
-    def get_primary_for_step(step):
-        start_block_number = next(
-            start_block_number
-            for start_block_number in descending_start_block_numbers
-            if step >= start_block_number
+
+class EpochFetcher:
+    def __init__(
+        self, w3: Web3, validator_definition_ranges: List[ValidatorDefinitionRange]
+    ) -> None:
+        self._w3 = w3
+        self._validator_definition_ranges = validator_definition_ranges
+        self._latest_fetched_epoch_start_height = 0
+
+    def fetch_new_epochs(self):
+        contracts_to_check = [
+            definition_range.contract_address
+            for definition_range in self._validator_definition_ranges
+            if (
+                definition_range.is_contract
+                and definition_range.transition_from_height
+                > self._latest_fetched_epoch_start_height
+            )
+        ]
+
+        new_epochs: List[Epoch] = []
+        for contract_address in contracts_to_check:
+            new_epochs_in_contract = self._fetch_new_epochs_from_contract(
+                contract_address
+            )
+            new_epochs += new_epochs_in_contract
+
+        new_epoch_start_heights = [epoch.start_height for epoch in new_epochs]
+        assert all(
+            epoch_start_height > self._latest_fetched_epoch_start_height
+            for epoch_start_height in new_epoch_start_heights
         )
-        current_validator_list = multi_list[start_block_number]
-        return current_validator_list[step % len(current_validator_list)]
+        self._latest_fetched_epoch_start_height = max(
+            new_epoch_start_heights, default=self._latest_fetched_epoch_start_height
+        )
 
-    return get_primary_for_step
+        return new_epochs
+
+    def _fetch_new_epochs_from_contract(self, contract_address: bytes) -> List[Epoch]:
+        contract = self._w3.eth.contract(
+            address=contract_address, abi=VALIDATOR_CONTRACT_ABI
+        )
+        epoch_start_heights = contract.call().getEpochStartHeights()
+
+        new_epoch_start_heights = [
+            epoch_start_height
+            for epoch_start_height in epoch_start_heights
+            if epoch_start_height > self._latest_fetched_epoch_start_height
+        ]
+
+        new_epochs = []
+        for epoch_start_height in new_epoch_start_heights:
+            validators = contract.call().getValidators(epoch_start_height)
+            epoch = Epoch(start_height=epoch_start_height, validators=validators)
+            new_epochs.append(epoch)
+
+        return new_epochs
