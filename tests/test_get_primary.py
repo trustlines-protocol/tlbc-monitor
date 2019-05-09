@@ -6,23 +6,40 @@ from monitor.validators import validate_validator_definition, make_primary_funct
 @pytest.mark.parametrize(
     "invalid_validator_definition",
     [
+        None,
         "0x" + "00" * 20,
         ["0x" + "00" * 20],
         {},
         {"0": ["0x" + "00" * 20]},
+        {"list": []},
+        {"multi": None},
         {"multi": []},
         {"multi": {}},
+        {"multi": {"100": None}},
         {"multi": {"0": []}},
+        {"multi": {"0": {}}},
+        {"multi": {"0": None}},
+        {"multi": {"foo": None, "0": None}},
         {"multi": {"0": ["0x" + "00" * 20]}},
+        {"multi": {"0": {"foo": None}}},
+        {"multi": {"0": {"list": None}}},
         {"multi": {"0": {"list": []}}},
         {"multi": {"0": {"list": {}}}},
+        {"multi": {"0": {"list": ["foo"]}}},
         {"multi": {"0": {"list": ["0x" + "gg" * 20]}}},
         {"multi": {"0": {"list": [b"\x00" * 20]}}},
-        {"multi": {"0": {"contract": "0x0000000000000000000000000000000000000005"}}},
         {"multi": {"1": {"list": ["0x" + "00" * 20]}}},
         {"multi": {0: {"list": ["0x" + "00" * 20]}}},
         {"multi": {"0": {"list": ["0x" + "00" * 20]}, "another_key": []}},
         {"multi": {"0": {"list": ["0x" + "00" * 20], "another_key": []}}},
+        {"multi": {"0": {"contract": None}}},
+        {"multi": {"0": {"contract": "foo"}}},
+        {"multi": {"0": {"contract": "0x" + "gg" * 20}}},
+        {"multi": {"0": {"contract": b"\x00" * 20}}},
+        {"multi": {"0": {"safeContract": None}}},
+        {"multi": {"0": {"safeContract": "foo"}}},
+        {"multi": {"0": {"safeContract": "0x" + "gg" * 20}}},
+        {"multi": {"0": {"safeContract": b"\x00" * 20}}}
     ],
 )
 def test_validation_invalid(invalid_validator_definition):
@@ -39,6 +56,13 @@ def test_validation_invalid(invalid_validator_definition):
             "multi": {
                 "0": {"list": ["0x" + "00" * 20]},
                 "100": {"list": ["0x" + "11" * 20]},
+            }
+        },
+        {
+            "multi": {
+                "0": {"list": ["0x" + "00" * 20, "0x" + "11" * 20]},
+                "100": {"contract": "0x" + "00" * 20},
+                "200": {"safeContract": "0x" + "00" * 20},
             }
         },
     ],

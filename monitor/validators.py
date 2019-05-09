@@ -21,16 +21,29 @@ def validate_validator_definition(validator_definition):
         if not multi_list_key.isdigit():
             raise ValueError("Multi list keys must be stringified ints")
 
-        if not isinstance(multi_list_entry, Mapping) or not list(
-            multi_list_entry.keys()
-        ) == ["list"]:
-            raise ValueError("Multi list entries must be lists")
+        if not isinstance(multi_list_entry, Mapping):
+            raise ValueError("Multi list entries must be a mapping")
 
-        if len(multi_list_entry["list"]) == 0:
-            raise ValueError("Validator lists must not be empty")
+        if not len(multi_list_entry.keys()) == 1:
+            raise ValueError("Multi list entries must have exactly one key")
 
-        if any(not is_hex_address(address) for address in multi_list_entry["list"]):
-            raise ValueError("Multi list entries must only contain hex addresses")
+        for multi_list_entry_type, multi_list_entry_data in multi_list_entry.items():
+            if multi_list_entry_type not in ["list", "safeContract", "contract"]:
+                raise ValueError("Multi list entries must be one of list, safeContract or contract")
+
+            if multi_list_entry_type == "list":
+                if not isinstance(multi_list_entry_data, list):
+                    raise ValueError("Static validator list definition must be a list")
+
+                if len(multi_list_entry_data) < 1:
+                    raise ValueError("Static validator list must not be empty")
+
+                if any(not is_hex_address(address) for address in multi_list_entry_data):
+                    raise ValueError("Static validator list must only contain hex addresses")
+
+            elif multi_list_entry_type in ["safeContract", "contract"]:
+                if not is_hex_address(multi_list_entry_data):
+                    raise ValueError("Dynamic validator list must be a single hex address")
 
 
 def make_primary_function(validator_definition):
