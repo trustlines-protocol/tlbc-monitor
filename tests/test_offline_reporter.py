@@ -17,7 +17,7 @@ def assigned_steps(primary_oracle):
         return (
             step
             for step in itertools.count()
-            if primary_oracle.get_primary(0, step) == validator
+            if primary_oracle.get_primary(height=0, step=step) == validator
         )
 
     return f
@@ -92,7 +92,7 @@ def test_multiple_offline_validators(validators, offline_reporter, primary_oracl
     offline_reporter.register_report_callback(report_callback)
 
     for step in [0, 1, 3, 4, 6, 7]:
-        offline_reporter(primary_oracle.get_primary(0, step), step)
+        offline_reporter(primary_oracle.get_primary(height=0, step=step), step)
 
     offline_reporter(validators[0], 9)
     report_callback.assert_called_once_with(validators[0], [0, 3, 6, 9])
@@ -105,7 +105,7 @@ def test_multiple_offline_validators(validators, offline_reporter, primary_oracl
 
 def test_reporting_after_restart(validators, offline_reporter, primary_oracle):
     for step in [0, 1, 3, 4, 6, 7]:
-        offline_reporter(primary_oracle.get_primary(0, step), step)
+        offline_reporter(primary_oracle.get_primary(height=0, step=step), step)
     offline_reporter(validators[0], 9)
 
     restarted_offline_reporter = OfflineReporter(

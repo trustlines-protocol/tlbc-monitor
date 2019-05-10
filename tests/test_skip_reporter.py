@@ -37,7 +37,7 @@ def test_validator_offline(primary_oracle, report_callback, validators):
     skip_reporter.register_report_callback(report_callback)
 
     for step in range(1, 11):
-        if primary_oracle.get_primary(0, step) != validators[0]:
+        if primary_oracle.get_primary(height=0, step=step) != validators[0]:
             skip_reporter(mock_block(step))
 
     assert report_callback.call_args_list == [
@@ -67,7 +67,9 @@ def test_single_skip(primary_oracle, report_callback):
 
     # skip is reported after grace period is over
     skip_reporter(mock_block(27))
-    report_callback.assert_called_once_with(primary_oracle.get_primary(0, 21), 21)
+    report_callback.assert_called_once_with(
+        primary_oracle.get_primary(height=0, step=21), 21
+    )
     report_callback.reset_mock()
 
     # skip is not reported again
@@ -135,7 +137,9 @@ def test_report_after_restart(primary_oracle, report_callback):
 
     # report at step 8
     restarted_skip_reporter(mock_block(8))
-    report_callback.assert_called_once_with(primary_oracle.get_primary(0, 2), 2)
+    report_callback.assert_called_once_with(
+        primary_oracle.get_primary(height=0, step=2), 2
+    )
 
 
 def test_no_repeated_report_after_restart(primary_oracle, report_callback):
