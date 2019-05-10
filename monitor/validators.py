@@ -52,7 +52,7 @@ def validate_validator_definition(validator_definition):
             elif multi_list_entry_type in ["safeContract", "contract"]:
                 if not is_hex_address(multi_list_entry_data):
                     raise ValueError(
-                        "Dynamic validator list must be a single hex address"
+                        "Validator contract address must be a single hex address"
                     )
 
 
@@ -69,7 +69,7 @@ def get_validator_definition_ranges(validator_definition):
     validate_validator_definition(validator_definition)
 
     sorted_definition = sorted(
-        validator_definition["multi"].items(), key=lambda kv: int(kv[0])
+        validator_definition["multi"].items(), key=lambda height, _: int(height)
     )
 
     items, nexts = tee(sorted_definition, 2)
