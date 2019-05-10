@@ -63,12 +63,18 @@ class PrimaryOracle:
         return validators[index]
 
     def _get_validators(self, block_height: int) -> List[bytes]:
+        if not self._epochs:
+            raise ValueError("No epochs have been added yet")
         started_epochs = [
             epoch for epoch in self._epochs if epoch.start_height < block_height
         ]
+        if not started_epochs:
+            raise ValueError(f"Block #{block_height} is earlier than the first epoch")
         return started_epochs[-1].validators
 
     def add_epoch(self, epoch: Epoch) -> None:
+        if not epoch.validators:
+            raise ValueError("Validators set of epoch is empty")
         unsorted_epochs = self._epochs + [epoch]
         sorted_epochs = sorted(unsorted_epochs, key=operator.attrgetter("start_height"))
         self._epochs = sorted_epochs
