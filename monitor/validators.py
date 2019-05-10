@@ -54,6 +54,8 @@ def validate_validator_definition(validator_definition):
                     raise ValueError(
                         "Validator contract address must be a single hex address"
                     )
+            else:
+                assert False, "Unreachable. Multi list entry type has already been validated."
 
 
 # Added for compatibility with the upcoming pull request
@@ -69,7 +71,9 @@ def get_validator_definition_ranges(validator_definition):
     validate_validator_definition(validator_definition)
 
     sorted_definition = sorted(
-        validator_definition["multi"].items(), key=lambda height, _: int(height)
+        # Lambda tuple destructuring has been removed from Python 3 (https://www.python.org/dev/peps/pep-3113/) :-(
+        validator_definition["multi"].items(), key=lambda item: int(item[0])
+
     )
 
     items, nexts = tee(sorted_definition, 2)
@@ -79,24 +83,26 @@ def get_validator_definition_ranges(validator_definition):
     for (range_height, range_config), (next_range_height, _) in zip(items, nexts):
         [(config_type, config_data)] = range_config.items()
 
+        validators = None
+        contract_address = None
         if config_type == "list":
-            result.append(
-                ValidatorDefinitionRange(
-                    transition_from_height=range_height,
-                    transition_to_height=next_range_height,
-                    is_contract=False,
-                    validators=config_data,
-                )
-            )
+            is_contract = False
+            validators = config_data
+        elif config_type in ["contract", "safeContract"]:
+            is_contract = True
+            contract_address = config_data
         else:
-            result.append(
-                ValidatorDefinitionRange(
-                    transition_from_height=range_height,
-                    transition_to_height=next_range_height,
-                    is_contract=True,
-                    contract_address=config_data,
-                )
+            assert False, "Unreachable. Invalid config type."
+
+        result.append(
+            ValidatorDefinitionRange(
+                transition_from_height=range_height,
+                transition_to_height=next_range_height,
+                is_contract=is_contract,
+                validators=validators,
+                contract_address=contract_address,
             )
+        )
 
     return result
 
