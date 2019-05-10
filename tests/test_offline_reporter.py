@@ -5,6 +5,7 @@ import itertools
 from unittest.mock import Mock
 
 from monitor.offline_reporter import OfflineReporter
+from monitor.validators import PrimaryOracle, Epoch
 
 
 OFFLINE_WINDOW_SIZE = 20
@@ -17,29 +18,28 @@ def validators():
 
 
 @pytest.fixture
-def get_primary_for_step(validators):
-    def f(step):
-        return validators[step % len(validators)]
-
-    return f
+def primary_oracle(validators):
+    primary_oracle = PrimaryOracle()
+    primary_oracle.add_epoch(Epoch(start_height=0, validators=validators))
+    return primary_oracle
 
 
 @pytest.fixture
-def assigned_steps(get_primary_for_step):
+def assigned_steps(primary_oracle):
     def f(validator):
         return (
             step
             for step in itertools.count()
-            if get_primary_for_step(step) == validator
+            if primary_oracle.get_primary(0, step) == validator
         )
 
     return f
 
 
 @pytest.fixture
-def offline_reporter(validators, get_primary_for_step):
+def offline_reporter(validators, primary_oracle):
     return OfflineReporter.from_fresh_state(
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         offline_window_size=OFFLINE_WINDOW_SIZE,
         allowed_skip_rate=ALLOWED_SKIP_RATE,
     )
@@ -100,14 +100,12 @@ def test_no_repeated_reporting(validators, offline_reporter):
     report_callback.assert_called_once()
 
 
-def test_multiple_offline_validators(
-    validators, offline_reporter, get_primary_for_step
-):
+def test_multiple_offline_validators(validators, offline_reporter, primary_oracle):
     report_callback = Mock()
     offline_reporter.register_report_callback(report_callback)
 
     for step in [0, 1, 3, 4, 6, 7]:
-        offline_reporter(get_primary_for_step(step), step)
+        offline_reporter(primary_oracle.get_primary(0, step), step)
 
     offline_reporter(validators[0], 9)
     report_callback.assert_called_once_with(validators[0], [0, 3, 6, 9])
@@ -118,14 +116,14 @@ def test_multiple_offline_validators(
     report_callback.reset_mock()
 
 
-def test_reporting_after_restart(validators, offline_reporter, get_primary_for_step):
+def test_reporting_after_restart(validators, offline_reporter, primary_oracle):
     for step in [0, 1, 3, 4, 6, 7]:
-        offline_reporter(get_primary_for_step(step), step)
+        offline_reporter(primary_oracle.get_primary(0, step), step)
     offline_reporter(validators[0], 9)
 
     restarted_offline_reporter = OfflineReporter(
         state=offline_reporter.state,
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         offline_window_size=OFFLINE_WINDOW_SIZE,
         allowed_skip_rate=ALLOWED_SKIP_RATE,
     )
