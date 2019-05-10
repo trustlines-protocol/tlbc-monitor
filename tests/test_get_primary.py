@@ -85,8 +85,8 @@ def test_get_ranges():
     ranges = get_validator_definition_ranges(validator_definition)
     assert ranges == [
         ValidatorDefinitionRange(
-            transition_to_height="100",
-            transition_from_height="0",
+            leave_height="100",
+            enter_height="0",
             is_contract=False,
             validators=[
                 "0x0000000000000000000000000000000000000000",
@@ -94,20 +94,20 @@ def test_get_ranges():
             ],
         ),
         ValidatorDefinitionRange(
-            transition_to_height="200",
-            transition_from_height="100",
+            leave_height="200",
+            enter_height="100",
             is_contract=True,
             contract_address="0x0000000000000000000000000000000000000000",
         ),
         ValidatorDefinitionRange(
-            transition_to_height="300",
-            transition_from_height="200",
+            leave_height="300",
+            enter_height="200",
             is_contract=True,
             contract_address="0x1111111111111111111111111111111111111111",
         ),
         ValidatorDefinitionRange(
-            transition_to_height=None,
-            transition_from_height="300",
+            leave_height=None,
+            enter_height="300",
             is_contract=False,
             validators=[
                 "0x2222222222222222222222222222222222222222",

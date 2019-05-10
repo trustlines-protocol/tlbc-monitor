@@ -1,8 +1,9 @@
 from collections.abc import Mapping
-from itertools import tee, islice, chain
+from itertools import chain
 from typing import NamedTuple, List, Optional
 
 from eth_utils import is_hex_address, to_canonical_address
+from eth_utils.toolz import sliding_window
 
 
 def validate_validator_definition(validator_definition):
@@ -55,13 +56,15 @@ def validate_validator_definition(validator_definition):
                         "Validator contract address must be a single hex address"
                     )
             else:
-                assert False, "Unreachable. Multi list entry type has already been validated."
+                assert (
+                    False
+                ), "Unreachable. Multi list entry type has already been validated."
 
 
 # Added for compatibility with the upcoming pull request
 class ValidatorDefinitionRange(NamedTuple):
-    transition_to_height: int
-    transition_from_height: int
+    enter_height: int
+    leave_height: int
     is_contract: bool
     contract_address: Optional[bytes] = None
     validators: Optional[List[bytes]] = None
@@ -72,15 +75,17 @@ def get_validator_definition_ranges(validator_definition):
 
     sorted_definition = sorted(
         # Lambda tuple destructuring has been removed from Python 3 (https://www.python.org/dev/peps/pep-3113/) :-(
-        validator_definition["multi"].items(), key=lambda item: int(item[0])
-
+        validator_definition["multi"].items(),
+        key=lambda item: int(item[0]),
     )
 
-    items, nexts = tee(sorted_definition, 2)
-    nexts = chain(islice(nexts, 1, None), [[None, None]])
-
     result = []
-    for (range_height, range_config), (next_range_height, _) in zip(items, nexts):
+
+    # Iterate over all configurations. Add an extra empty item for the sliding window to slide to the very end.
+    # Alternatively we'd have to do some additional processing which would further complicate the code
+    for (range_height, range_config), (next_range_height, _) in sliding_window(
+        2, chain(sorted_definition, [[None, None]])
+    ):
         [(config_type, config_data)] = range_config.items()
 
         validators = None
@@ -96,8 +101,8 @@ def get_validator_definition_ranges(validator_definition):
 
         result.append(
             ValidatorDefinitionRange(
-                transition_from_height=range_height,
-                transition_to_height=next_range_height,
+                enter_height=range_height,
+                leave_height=next_range_height,
                 is_contract=is_contract,
                 validators=validators,
                 contract_address=contract_address,
