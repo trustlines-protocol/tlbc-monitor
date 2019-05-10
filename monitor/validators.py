@@ -1,6 +1,9 @@
 from collections.abc import Mapping
+from itertools import chain
+from typing import NamedTuple, List, Optional
 
 from eth_utils import is_hex_address, to_canonical_address
+from eth_utils.toolz import sliding_window
 
 
 def validate_validator_definition(validator_definition):
@@ -21,16 +24,92 @@ def validate_validator_definition(validator_definition):
         if not multi_list_key.isdigit():
             raise ValueError("Multi list keys must be stringified ints")
 
-        if not isinstance(multi_list_entry, Mapping) or not list(
-            multi_list_entry.keys()
-        ) == ["list"]:
-            raise ValueError("Multi list entries must be lists")
+        if not isinstance(multi_list_entry, Mapping):
+            raise ValueError("Multi list entries must be a mapping")
 
-        if len(multi_list_entry["list"]) == 0:
-            raise ValueError("Validator lists must not be empty")
+        if not len(multi_list_entry.keys()) == 1:
+            raise ValueError("Multi list entries must have exactly one key")
 
-        if any(not is_hex_address(address) for address in multi_list_entry["list"]):
-            raise ValueError("Multi list entries must only contain hex addresses")
+        for multi_list_entry_type, multi_list_entry_data in multi_list_entry.items():
+            if multi_list_entry_type not in ["list", "safeContract", "contract"]:
+                raise ValueError(
+                    "Multi list entries must be one of list, safeContract or contract"
+                )
+
+            if multi_list_entry_type == "list":
+                if not isinstance(multi_list_entry_data, list):
+                    raise ValueError("Static validator list definition must be a list")
+
+                if len(multi_list_entry_data) < 1:
+                    raise ValueError("Static validator list must not be empty")
+
+                if any(
+                    not is_hex_address(address) for address in multi_list_entry_data
+                ):
+                    raise ValueError(
+                        "Static validator list must only contain hex addresses"
+                    )
+
+            elif multi_list_entry_type in ["safeContract", "contract"]:
+                if not is_hex_address(multi_list_entry_data):
+                    raise ValueError(
+                        "Validator contract address must be a single hex address"
+                    )
+            else:
+                assert (
+                    False
+                ), "Unreachable. Multi list entry type has already been validated."
+
+
+# Added for compatibility with the upcoming pull request
+class ValidatorDefinitionRange(NamedTuple):
+    enter_height: int
+    leave_height: int
+    is_contract: bool
+    contract_address: Optional[bytes] = None
+    validators: Optional[List[bytes]] = None
+
+
+def get_validator_definition_ranges(validator_definition):
+    validate_validator_definition(validator_definition)
+
+    sorted_definition = sorted(
+        # Lambda tuple destructuring has been removed from Python 3 (https://www.python.org/dev/peps/pep-3113/) :-(
+        validator_definition["multi"].items(),
+        key=lambda item: int(item[0]),
+    )
+
+    result = []
+
+    # Iterate over all configurations. Add an extra empty item for the sliding window to slide to the very end.
+    # Alternatively we'd have to do some additional processing which would further complicate the code
+    for (range_height, range_config), (next_range_height, _) in sliding_window(
+        2, chain(sorted_definition, [[None, None]])
+    ):
+        [(config_type, config_data)] = range_config.items()
+
+        validators = None
+        contract_address = None
+        if config_type == "list":
+            is_contract = False
+            validators = config_data
+        elif config_type in ["contract", "safeContract"]:
+            is_contract = True
+            contract_address = config_data
+        else:
+            assert False, "Unreachable. Invalid config type."
+
+        result.append(
+            ValidatorDefinitionRange(
+                enter_height=range_height,
+                leave_height=next_range_height,
+                is_contract=is_contract,
+                validators=validators,
+                contract_address=contract_address,
+            )
+        )
+
+    return result
 
 
 def make_primary_function(validator_definition):
