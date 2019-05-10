@@ -46,8 +46,8 @@ class Epoch(NamedTuple):
 
 
 class ValidatorDefinitionRange(NamedTuple):
-    transition_to_height: int
-    transition_from_height: int
+    transition_to_height: int  # first height at which this definition is considered
+    transition_from_height: int  # first height at which the following definition is considered
     is_contract: bool
     contract_address: Optional[bytes]
     validators: Optional[List[bytes]]
