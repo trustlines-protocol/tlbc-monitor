@@ -94,8 +94,11 @@ class EpochFetcher:
             for definition_range in self._validator_definition_ranges
             if (
                 definition_range.is_contract
-                and definition_range.transition_from_height
-                > self._latest_fetched_epoch_start_height
+                and (
+                    definition_range.transition_from_height is None
+                    or definition_range.transition_from_height
+                    > self._latest_fetched_epoch_start_height
+                )
             )
         ]
 
