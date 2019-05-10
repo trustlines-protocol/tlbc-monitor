@@ -66,7 +66,7 @@ class PrimaryOracle:
         if not self._epochs:
             raise ValueError("No epochs have been added yet")
         started_epochs = [
-            epoch for epoch in self._epochs if epoch.start_height < block_height
+            epoch for epoch in self._epochs if epoch.start_height <= block_height
         ]
         if not started_epochs:
             raise ValueError(f"Block #{block_height} is earlier than the first epoch")
