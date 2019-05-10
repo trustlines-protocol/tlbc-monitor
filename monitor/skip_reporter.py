@@ -4,6 +4,8 @@ import structlog
 
 from eth_utils import encode_hex
 
+from monitor.validators import PrimaryOracle
+
 
 class SkipReporterState(NamedTuple):
     latest_step: Any
@@ -19,8 +21,10 @@ class SkipReporter:
 
     logger = structlog.get_logger("monitor.skip_reporter")
 
-    def __init__(self, state, get_primary_for_step, grace_period=20):
-        self.get_primary_for_step = get_primary_for_step
+    def __init__(
+        self, state, primary_oracle: PrimaryOracle, grace_period: int = 20
+    ) -> None:
+        self.primary_oracle = primary_oracle
         self.grace_period = grace_period
 
         self.latest_step = state.latest_step
@@ -62,7 +66,7 @@ class SkipReporter:
         # report misses
         missed_steps = self.get_missed_steps()
         for step in missed_steps:
-            primary = self.get_primary_for_step(step)
+            primary = self.primary_oracle.get_primary(step, step)  # FIXME
             self.logger.info(
                 "detected missed step", primary=encode_hex(primary), step=step
             )
