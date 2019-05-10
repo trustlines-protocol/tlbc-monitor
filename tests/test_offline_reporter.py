@@ -5,23 +5,10 @@ import itertools
 from unittest.mock import Mock
 
 from monitor.offline_reporter import OfflineReporter
-from monitor.validators import PrimaryOracle, Epoch
 
 
 OFFLINE_WINDOW_SIZE = 20
 ALLOWED_SKIP_RATE = 0.5
-
-
-@pytest.fixture
-def validators():
-    return [b"\x00" * 20, b"\x11" * 20, b"\x22" * 20]
-
-
-@pytest.fixture
-def primary_oracle(validators):
-    primary_oracle = PrimaryOracle()
-    primary_oracle.add_epoch(Epoch(start_height=0, validators=validators))
-    return primary_oracle
 
 
 @pytest.fixture
