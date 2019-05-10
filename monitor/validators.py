@@ -57,7 +57,7 @@ class PrimaryOracle:
     def __init__(self) -> None:
         self._epochs: List[Epoch] = []
 
-    def get_primary(self, *, step: int, block_height: int):
+    def get_primary(self, block_height: int, step: int):
         validators = self._get_validators(block_height)
         index = step % len(validators)
         return validators[index]
