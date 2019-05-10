@@ -1,7 +1,6 @@
 import pytest
 
-from monitor.validators import validate_validator_definition, make_primary_function
-
+from monitor.validators import validate_validator_definition, ValidatorDefinitionRange, get_validator_definition_ranges, make_primary_function
 
 @pytest.mark.parametrize(
     "invalid_validator_definition",
@@ -46,6 +45,15 @@ def test_validation_invalid(invalid_validator_definition):
     with pytest.raises(ValueError):
         validate_validator_definition(invalid_validator_definition)
 
+# Reusable definition
+validator_definition = {
+    "multi": {
+        "0": {"list": ["0x" + "00" * 20, "0x" + "11" * 20]},
+        "100": {"contract": "0x" + "00" * 20},
+        "300": {"list": ["0x" + "22" * 20, "0x" + "33" * 20]},
+        "200": {"safeContract": "0x" + "11" * 20},
+    }
+}
 
 @pytest.mark.parametrize(
     "valid_validator_definition",
@@ -58,18 +66,41 @@ def test_validation_invalid(invalid_validator_definition):
                 "100": {"list": ["0x" + "11" * 20]},
             }
         },
-        {
-            "multi": {
-                "0": {"list": ["0x" + "00" * 20, "0x" + "11" * 20]},
-                "100": {"contract": "0x" + "00" * 20},
-                "200": {"safeContract": "0x" + "00" * 20},
-            }
-        },
+        validator_definition
     ],
 )
 def test_validation_valid(valid_validator_definition):
     validate_validator_definition(valid_validator_definition)
 
+
+def test_get_ranges():
+    ranges = get_validator_definition_ranges(validator_definition)
+    assert(ranges == [
+        ValidatorDefinitionRange(
+            transition_to_height='100',
+            transition_from_height='0',
+            is_contract=False,
+            validators=['0x0000000000000000000000000000000000000000', '0x1111111111111111111111111111111111111111']
+        ),
+        ValidatorDefinitionRange(
+            transition_to_height='200',
+            transition_from_height='100',
+            is_contract=True,
+            contract_address='0x0000000000000000000000000000000000000000'
+        ),
+        ValidatorDefinitionRange(
+            transition_to_height='300',
+            transition_from_height='200',
+            is_contract=True,
+            contract_address='0x1111111111111111111111111111111111111111'
+        ),
+        ValidatorDefinitionRange(
+            transition_to_height=None,
+            transition_from_height='300',
+            is_contract=False,
+            validators=['0x2222222222222222222222222222222222222222', '0x3333333333333333333333333333333333333333']
+        )
+    ])
 
 @pytest.mark.parametrize(
     "validator_definition, slots, primaries",

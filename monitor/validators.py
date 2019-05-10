@@ -1,4 +1,6 @@
 from collections.abc import Mapping
+from itertools import tee, islice, chain
+from typing import NamedTuple, List, Optional
 
 from eth_utils import is_hex_address, to_canonical_address
 
@@ -45,6 +47,42 @@ def validate_validator_definition(validator_definition):
                 if not is_hex_address(multi_list_entry_data):
                     raise ValueError("Dynamic validator list must be a single hex address")
 
+# Added for compatibility with the upcoming pull request
+class ValidatorDefinitionRange(NamedTuple):
+    transition_to_height: int
+    transition_from_height: int
+    is_contract: bool
+    contract_address: Optional[bytes] = None
+    validators: Optional[List[bytes]] = None
+
+def get_validator_definition_ranges(validator_definition):
+    validate_validator_definition(validator_definition)
+
+    sorted_definition = sorted(validator_definition["multi"].items(), key=lambda kv: int(kv[0]))
+
+    items, nexts = tee(sorted_definition, 2)
+    nexts = chain(islice(nexts, 1, None), [[None, None]])
+
+    result = []
+    for (range_height, range_config), (next_range_height, _) in zip(items, nexts):
+        [(config_type, config_data)] = range_config.items()
+
+        if config_type == "list":
+            result.append(ValidatorDefinitionRange(
+                transition_from_height = range_height,
+                transition_to_height = next_range_height,
+                is_contract = False,
+                validators = config_data
+            ))
+        else:
+            result.append(ValidatorDefinitionRange(
+                transition_from_height = range_height,
+                transition_to_height = next_range_height,
+                is_contract = True,
+                contract_address = config_data
+            ))
+
+    return result
 
 def make_primary_function(validator_definition):
     validate_validator_definition(validator_definition)
