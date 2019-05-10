@@ -31,7 +31,9 @@ def validate_validator_definition(validator_definition):
 
         for multi_list_entry_type, multi_list_entry_data in multi_list_entry.items():
             if multi_list_entry_type not in ["list", "safeContract", "contract"]:
-                raise ValueError("Multi list entries must be one of list, safeContract or contract")
+                raise ValueError(
+                    "Multi list entries must be one of list, safeContract or contract"
+                )
 
             if multi_list_entry_type == "list":
                 if not isinstance(multi_list_entry_data, list):
@@ -40,12 +42,19 @@ def validate_validator_definition(validator_definition):
                 if len(multi_list_entry_data) < 1:
                     raise ValueError("Static validator list must not be empty")
 
-                if any(not is_hex_address(address) for address in multi_list_entry_data):
-                    raise ValueError("Static validator list must only contain hex addresses")
+                if any(
+                    not is_hex_address(address) for address in multi_list_entry_data
+                ):
+                    raise ValueError(
+                        "Static validator list must only contain hex addresses"
+                    )
 
             elif multi_list_entry_type in ["safeContract", "contract"]:
                 if not is_hex_address(multi_list_entry_data):
-                    raise ValueError("Dynamic validator list must be a single hex address")
+                    raise ValueError(
+                        "Dynamic validator list must be a single hex address"
+                    )
+
 
 # Added for compatibility with the upcoming pull request
 class ValidatorDefinitionRange(NamedTuple):
@@ -55,10 +64,13 @@ class ValidatorDefinitionRange(NamedTuple):
     contract_address: Optional[bytes] = None
     validators: Optional[List[bytes]] = None
 
+
 def get_validator_definition_ranges(validator_definition):
     validate_validator_definition(validator_definition)
 
-    sorted_definition = sorted(validator_definition["multi"].items(), key=lambda kv: int(kv[0]))
+    sorted_definition = sorted(
+        validator_definition["multi"].items(), key=lambda kv: int(kv[0])
+    )
 
     items, nexts = tee(sorted_definition, 2)
     nexts = chain(islice(nexts, 1, None), [[None, None]])
@@ -68,21 +80,26 @@ def get_validator_definition_ranges(validator_definition):
         [(config_type, config_data)] = range_config.items()
 
         if config_type == "list":
-            result.append(ValidatorDefinitionRange(
-                transition_from_height = range_height,
-                transition_to_height = next_range_height,
-                is_contract = False,
-                validators = config_data
-            ))
+            result.append(
+                ValidatorDefinitionRange(
+                    transition_from_height=range_height,
+                    transition_to_height=next_range_height,
+                    is_contract=False,
+                    validators=config_data,
+                )
+            )
         else:
-            result.append(ValidatorDefinitionRange(
-                transition_from_height = range_height,
-                transition_to_height = next_range_height,
-                is_contract = True,
-                contract_address = config_data
-            ))
+            result.append(
+                ValidatorDefinitionRange(
+                    transition_from_height=range_height,
+                    transition_to_height=next_range_height,
+                    is_contract=True,
+                    contract_address=config_data,
+                )
+            )
 
     return result
+
 
 def make_primary_function(validator_definition):
     validate_validator_definition(validator_definition)
