@@ -22,7 +22,12 @@ from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
 from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
-from monitor.validators import EpochFetcher, PrimaryOracle, parse_validator_definition
+from monitor.validators import (
+    EpochFetcher,
+    PrimaryOracle,
+    parse_validator_definition,
+    get_static_epochs,
+)
 
 import click
 
@@ -189,9 +194,10 @@ class App:
             validator_definition_ranges = parse_validator_definition(
                 validator_definition
             )
+            static_epochs = get_static_epochs(validator_definition_ranges)
 
             self.epoch_fetcher = EpochFetcher(self.w3, validator_definition_ranges)
-            self.primary_oracle = PrimaryOracle()
+            self.primary_oracle = PrimaryOracle(static_epochs)
 
             self._update_epochs()
 
