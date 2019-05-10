@@ -6,6 +6,8 @@ import structlog
 
 from eth_utils import encode_hex
 
+from monitor.validators import PrimaryOracle
+
 
 class OfflineReporterStateV1(NamedTuple):
     reported_validators: Any
@@ -22,9 +24,13 @@ class OfflineReporter:
     logger = structlog.get_logger("monitor.offline_reporter")
 
     def __init__(
-        self, state, get_primary_for_step, offline_window_size, allowed_skip_rate
+        self,
+        state,
+        primary_oracle: PrimaryOracle,
+        offline_window_size,
+        allowed_skip_rate,
     ):
-        self.get_primary_for_step = get_primary_for_step
+        self.primary_oracle = primary_oracle
 
         self.offline_window_size = offline_window_size
         self.allowed_skip_rate = allowed_skip_rate
@@ -88,7 +94,9 @@ class OfflineReporter:
         window = range(current_step - self.offline_window_size + 1, current_step + 1)
 
         assigned_steps = [
-            step for step in window if self.get_primary_for_step(step) == validator
+            step
+            for step in window
+            if self.primary_oracle.get_primary(step, step) == validator  # FIXME
         ]
         missed_steps_in_window = [step for step in skips if step in window]
 

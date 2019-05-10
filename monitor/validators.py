@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from itertools import chain
 import operator
-from typing import NamedTuple, List, Optional
+from typing import NamedTuple, cast, List, Optional
 
 from eth_utils import is_hex_address, to_canonical_address
 from eth_utils.toolz import sliding_window
@@ -166,7 +166,7 @@ class EpochFetcher:
         self._validator_definition_ranges = validator_definition_ranges
         self._latest_fetched_epoch_start_height = 0
 
-    def fetch_new_epochs(self):
+    def fetch_new_epochs(self) -> List[Epoch]:
         contracts_to_check = [
             definition_range.contract_address
             for definition_range in self._validator_definition_ranges
@@ -180,7 +180,7 @@ class EpochFetcher:
         new_epochs: List[Epoch] = []
         for contract_address in contracts_to_check:
             new_epochs_in_contract = self._fetch_new_epochs_from_contract(
-                contract_address
+                cast(bytes, contract_address)
             )
             new_epochs += new_epochs_in_contract
 
