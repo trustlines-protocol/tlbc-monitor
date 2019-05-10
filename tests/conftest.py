@@ -11,6 +11,7 @@ from eth_utils import int_to_big_endian, to_checksum_address
 from sqlalchemy import create_engine
 
 from monitor.db import BlockDB
+from monitor.validators import PrimaryOracle, Epoch
 
 
 from tests.fake_aura_backend import (
@@ -64,3 +65,15 @@ def engine():
 @pytest.fixture
 def empty_db(engine):
     return BlockDB(engine)
+
+
+@pytest.fixture
+def validators():
+    return [b"\x00" * 20, b"\x11" * 20, b"\x22" * 20]
+
+
+@pytest.fixture
+def primary_oracle(validators):
+    primary_oracle = PrimaryOracle()
+    primary_oracle.add_epoch(Epoch(start_height=0, validators=validators))
+    return primary_oracle
