@@ -4,19 +4,6 @@ from unittest.mock import Mock, call
 from web3.datastructures import AttributeDict
 
 from monitor.skip_reporter import SkipReporter
-from monitor.validators import PrimaryOracle, Epoch
-
-
-@pytest.fixture
-def validators():
-    return [b"\x00" * 20, b"\x11" * 20, b"\x22" * 20]
-
-
-@pytest.fixture
-def primary_oracle(validators):
-    primary_oracle = PrimaryOracle()
-    primary_oracle.add_epoch(Epoch(start_height=0, validators=validators))
-    return primary_oracle
 
 
 @pytest.fixture
