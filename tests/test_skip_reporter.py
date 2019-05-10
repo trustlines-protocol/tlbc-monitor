@@ -4,6 +4,7 @@ from unittest.mock import Mock, call
 from web3.datastructures import AttributeDict
 
 from monitor.skip_reporter import SkipReporter
+from monitor.validators import PrimaryOracle, Epoch
 
 
 @pytest.fixture
@@ -12,11 +13,10 @@ def validators():
 
 
 @pytest.fixture
-def get_primary_for_step(validators):
-    def f(step):
-        return validators[step % len(validators)]
-
-    return f
+def primary_oracle(validators):
+    primary_oracle = PrimaryOracle()
+    primary_oracle.add_epoch(Epoch(start_height=0, validators=validators))
+    return primary_oracle
 
 
 @pytest.fixture
@@ -28,10 +28,10 @@ def mock_block(step):
     return AttributeDict({"step": str(step)})
 
 
-def test_no_skips(report_callback):
+def test_no_skips(report_callback, primary_oracle):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=5,
     )
     skip_reporter.register_report_callback(report_callback)
@@ -41,16 +41,16 @@ def test_no_skips(report_callback):
     report_callback.assert_not_called()
 
 
-def test_validator_offline(get_primary_for_step, report_callback, validators):
+def test_validator_offline(primary_oracle, report_callback, validators):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=3,
     )
     skip_reporter.register_report_callback(report_callback)
 
     for step in range(1, 11):
-        if get_primary_for_step(step) != validators[0]:
+        if primary_oracle.get_primary(0, step) != validators[0]:
             skip_reporter(mock_block(step))
 
     assert report_callback.call_args_list == [
@@ -59,10 +59,10 @@ def test_validator_offline(get_primary_for_step, report_callback, validators):
     ]
 
 
-def test_single_skip(get_primary_for_step, report_callback):
+def test_single_skip(primary_oracle, report_callback):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=5,
     )
     skip_reporter.register_report_callback(report_callback)
@@ -80,7 +80,7 @@ def test_single_skip(get_primary_for_step, report_callback):
 
     # skip is reported after grace period is over
     skip_reporter(mock_block(27))
-    report_callback.assert_called_once_with(get_primary_for_step(21), 21)
+    report_callback.assert_called_once_with(primary_oracle.get_primary(0, 21), 21)
     report_callback.reset_mock()
 
     # skip is not reported again
@@ -89,10 +89,10 @@ def test_single_skip(get_primary_for_step, report_callback):
     report_callback.assert_not_called()
 
 
-def test_skip_recovery(get_primary_for_step, report_callback):
+def test_skip_recovery(primary_oracle, report_callback):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=5,
     )
     skip_reporter.register_report_callback(report_callback)
@@ -119,10 +119,10 @@ def test_skip_recovery(get_primary_for_step, report_callback):
     report_callback.assert_not_called()
 
 
-def test_report_after_restart(get_primary_for_step, report_callback):
+def test_report_after_restart(primary_oracle, report_callback):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=5,
     )
 
@@ -137,9 +137,7 @@ def test_report_after_restart(get_primary_for_step, report_callback):
 
     # restart
     restarted_skip_reporter = SkipReporter(
-        state=skip_reporter.state,
-        get_primary_for_step=get_primary_for_step,
-        grace_period=5,
+        state=skip_reporter.state, primary_oracle=primary_oracle, grace_period=5
     )
     restarted_skip_reporter.register_report_callback(report_callback)
 
@@ -150,13 +148,13 @@ def test_report_after_restart(get_primary_for_step, report_callback):
 
     # report at step 8
     restarted_skip_reporter(mock_block(8))
-    report_callback.assert_called_once_with(get_primary_for_step(2), 2)
+    report_callback.assert_called_once_with(primary_oracle.get_primary(0, 2), 2)
 
 
-def test_no_repeated_report_after_restart(get_primary_for_step, report_callback):
+def test_no_repeated_report_after_restart(primary_oracle, report_callback):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),
-        get_primary_for_step=get_primary_for_step,
+        primary_oracle=primary_oracle,
         grace_period=5,
     )
 
@@ -172,9 +170,7 @@ def test_no_repeated_report_after_restart(get_primary_for_step, report_callback)
 
     # restart, mine blocks, and check that no additional report is created
     restarted_skip_reporter = SkipReporter(
-        state=skip_reporter.state,
-        get_primary_for_step=get_primary_for_step,
-        grace_period=5,
+        state=skip_reporter.state, primary_oracle=primary_oracle, grace_period=5
     )
     skip_reporter.register_report_callback(report_callback)
     for step in range(28, 100):

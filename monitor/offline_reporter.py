@@ -96,7 +96,7 @@ class OfflineReporter:
         assigned_steps = [
             step
             for step in window
-            if self.primary_oracle.get_primary(step, step) == validator  # FIXME
+            if self.primary_oracle.get_primary(max(step, 0), step) == validator  # FIXME
         ]
         missed_steps_in_window = [step for step in skips if step in window]
 
