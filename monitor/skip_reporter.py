@@ -66,7 +66,9 @@ class SkipReporter:
         # report misses
         missed_steps = self.get_missed_steps()
         for step in missed_steps:
-            primary = self.primary_oracle.get_primary(step, step)  # FIXME
+            primary = self.primary_oracle.get_primary(
+                height=2 ** 64 - 1, step=step
+            )  # FIXME
             self.logger.info(
                 "detected missed step", primary=encode_hex(primary), step=step
             )
