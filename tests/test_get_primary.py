@@ -4,7 +4,6 @@ from monitor.validators import (
     validate_validator_definition,
     ValidatorDefinitionRange,
     get_validator_definition_ranges,
-    make_primary_function,
 )
 
 
@@ -115,44 +114,3 @@ def test_get_ranges():
             ],
         ),
     ]
-
-
-@pytest.mark.parametrize(
-    "validator_definition, slots, primaries",
-    [
-        (
-            {"multi": {"0": {"list": ["0x" + "00" * 20]}}},
-            [0, 1, 2, 3, 4, 5, 1000],
-            [b"\x00" * 20],
-        ),
-        (
-            {
-                "multi": {
-                    "0": {"list": ["0x" + "00" * 20]},
-                    "5": {"list": ["0x" + "11" * 20]},
-                }
-            },
-            [0, 1, 4, 5, 6, 1000],
-            [b"\x00" * 20] * 3 + [b"\x11" * 20] * 3,
-        ),
-        (
-            {"multi": {"0": {"list": ["0x" + "00" * 20, "0x" + "11" * 20]}}},
-            [0, 1, 2, 3, 1000, 1001],
-            [b"\x00" * 20, b"\x11" * 20] * 3,
-        ),
-        (
-            {
-                "multi": {
-                    "0": {"list": ["0x" + "00" * 20]},
-                    "3": {"list": ["0x" + "11" * 20, "0x" + "22" * 20]},
-                }
-            },
-            [3, 4, 5, 6, 1001, 1002],
-            [b"\x22" * 20, b"\x11" * 20] * 3,
-        ),
-    ],
-)
-def test_get_primary_for_slot(validator_definition, slots, primaries):
-    get_primary_for_slot = make_primary_function(validator_definition)
-    for slot, primary in zip(slots, primaries):
-        assert get_primary_for_slot(slot) == primary
