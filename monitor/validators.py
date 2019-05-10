@@ -1,6 +1,7 @@
 from collections.abc import Mapping
+from copy import copy
 import operator
-from typing import NamedTuple, cast, List, Optional
+from typing import NamedTuple, cast, List, Optional, Sequence
 
 from web3 import Web3
 
@@ -56,9 +57,33 @@ class ValidatorDefinitionRange(NamedTuple):
     validators: Optional[List[bytes]]
 
 
+def get_static_epochs(
+    validator_definition_ranges: List[ValidatorDefinitionRange]
+) -> List[Epoch]:
+    epochs = []
+
+    for validator_definition_range in validator_definition_ranges:
+        if not validator_definition_range.is_contract:
+            assert validator_definition_range.validators is not None
+
+            epoch = Epoch(
+                start_height=validator_definition_range.transition_to_height,
+                validators=validator_definition_range.validators,
+            )
+            epochs.append(epoch)
+
+    return epochs
+
+
 class PrimaryOracle:
-    def __init__(self) -> None:
-        self._epochs: List[Epoch] = []
+    def __init__(self, static_epochs: Sequence[Epoch] = None) -> None:
+        self._static_epochs = list(static_epochs or [])
+        self._epochs = copy(self._static_epochs)
+
+        self._static_epoch_start_heights = set(
+            epoch.start_height for epoch in self._static_epochs
+        )
+        self._epoch_start_heights = copy(self._static_epoch_start_heights)
 
     def get_primary(self, *, height: int, step: int):
         validators = self._get_validators(height)
@@ -77,7 +102,19 @@ class PrimaryOracle:
 
     def add_epoch(self, epoch: Epoch) -> None:
         if not epoch.validators:
-            raise ValueError("Validators set of epoch is empty")
+            raise ValueError("Validator set of epoch is empty")
+
+        if epoch.start_height in self._static_epoch_start_heights:
+            # ignore epochs that would start right when a static epoch would start as those have
+            # priority
+            return
+
+        if epoch.start_height in self._epoch_start_heights:
+            raise ValueError(
+                "Another non-static epoch starting at this height already exists"
+            )
+        self._epoch_start_heights.add(epoch.start_height)
+
         unsorted_epochs = self._epochs + [epoch]
         sorted_epochs = sorted(unsorted_epochs, key=operator.attrgetter("start_height"))
         self._epochs = sorted_epochs

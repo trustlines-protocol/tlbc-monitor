@@ -69,3 +69,29 @@ def test_epoch_sorting():
         assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR2
     for height in range(10, 15):
         assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR3
+
+
+def test_epoch_collision():
+    primary_oracle = PrimaryOracle()
+    primary_oracle.add_epoch(Epoch(0, [VALIDATOR1]))
+    with pytest.raises(ValueError):
+        primary_oracle.add_epoch(Epoch(0, [VALIDATOR2]))
+
+
+def test_epoch_collision_with_static_epoch():
+    static_epochs = [Epoch(0, [VALIDATOR1])]
+    primary_oracle = PrimaryOracle(static_epochs)
+    primary_oracle.add_epoch(Epoch(0, [VALIDATOR2]))
+    assert primary_oracle.get_primary(height=0, step=0) == VALIDATOR1
+
+
+def test_static_and_dynamic_epochs():
+    static_epochs = [Epoch(0, [VALIDATOR1]), Epoch(10, [VALIDATOR3])]
+    primary_oracle = PrimaryOracle(static_epochs)
+    primary_oracle.add_epoch(Epoch(5, [VALIDATOR2]))
+    for height in range(5):
+        assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR1
+    for height in range(5, 10):
+        assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR2
+    for height in range(10, 15):
+        assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR3
