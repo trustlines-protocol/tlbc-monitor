@@ -1,4 +1,4 @@
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, List, Callable
 
 import structlog
 
@@ -30,7 +30,7 @@ class SkipReporter:
         self.latest_step = state.latest_step
         self.open_steps = state.open_steps
 
-        self.report_callbacks = []
+        self.report_callbacks: List[Callable[[bytes, int], Any]] = []
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):

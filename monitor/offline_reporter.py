@@ -1,6 +1,6 @@
 from collections import defaultdict
 from fractions import Fraction
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, List, Callable
 
 import structlog
 
@@ -40,7 +40,7 @@ class OfflineReporter:
             set, state.recent_skips_by_validator
         )
 
-        self.report_callbacks = []
+        self.report_callbacks: List[Callable[[bytes, List[int]], Any]] = []
 
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
