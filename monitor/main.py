@@ -22,7 +22,7 @@ from monitor.offline_reporter import OfflineReporter
 from monitor.skip_reporter import SkipReporter
 from monitor.equivocation_reporter import EquivocationReporter
 from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
-from monitor.validators import make_primary_function
+from monitor.validators import EpochFetcher, PrimaryOracle, parse_validator_definition
 
 import click
 
@@ -103,7 +103,8 @@ class App:
         self.skip_file = open(report_dir / SKIP_FILE_NAME, "a")
 
         self.w3 = None
-        self.get_primary_for_step = None
+        self.epoch_fetcher = None
+        self.primary_oracle = None
 
         self.db = None
         self.block_fetcher = None
@@ -114,34 +115,44 @@ class App:
 
         self._initialize_db(self.db_dir / DB_FILE_NAME)
         self._initialize_w3(rpc_uri)
-        self._load_primary_function(chain_spec_path)
+        self._initialize_primary_oracle(chain_spec_path)
         self._initialize_reporters(skip_rate, offline_window_size)
         self._register_reporter_callbacks()
         self._running = False
 
-    def run(self):
+    def run(self) -> None:
         self._running = True
         try:
             self.logger.info("starting sync")
             while self._running:
-                with self.db.persistent_session() as session:
-                    number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
-                        max_number_of_blocks=500
-                    )
-                    self.db.store_pickled("appstate", self.app_state)
-                    self.skip_file.flush()
-                    session.commit()
-
-                self.logger.info(
-                    f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%) {format_block(self.block_fetcher.head)}",
-                    head_hash=self.block_fetcher.head.hash,
-                    head_number=self.block_fetcher.head.number,
-                )
-
-                if number_of_new_blocks == 0:
-                    time.sleep(BLOCK_FETCH_INTERVAL)
+                self._run_cycle()
         finally:
             self.skip_file.close()
+
+    def _run_cycle(self) -> None:
+        self._update_epochs()
+        with self.db.persistent_session() as session:
+            number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
+                max_number_of_blocks=500
+            )
+            self.db.store_pickled("appstate", self.app_state)
+            self.skip_file.flush()
+            session.commit()
+
+        self.logger.info(
+            f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%) "
+            f"{format_block(self.block_fetcher.head)}",
+            head_hash=self.block_fetcher.head.hash,
+            head_number=self.block_fetcher.head.number,
+        )
+
+        if number_of_new_blocks == 0:
+            time.sleep(BLOCK_FETCH_INTERVAL)
+
+    def _update_epochs(self) -> None:
+        new_epochs = self.epoch_fetcher.fetch_new_epochs()
+        for epoch in new_epochs:
+            self.primary_oracle.add_epoch(epoch)
 
     def stop(self):
         self.logger.info(
@@ -169,13 +180,20 @@ class App:
     def _initialize_w3(self, rpc_uri):
         self.w3 = Web3(HTTPProvider(rpc_uri))
 
-    def _load_primary_function(self, chain_spec_path):
+    def _initialize_primary_oracle(self, chain_spec_path: Path) -> None:
         with chain_spec_path.open("r") as f:
             chain_spec = json.load(f)
             validator_definition = chain_spec["engine"]["authorityRound"]["params"][
                 "validators"
             ]
-            self.get_primary_for_step = make_primary_function(validator_definition)
+            validator_definition_ranges = parse_validator_definition(
+                validator_definition
+            )
+
+            self.epoch_fetcher = EpochFetcher(self.w3, validator_definition_ranges)
+            self.primary_oracle = PrimaryOracle()
+
+            self._update_epochs()
 
     def _initialize_reporters(self, skip_rate, offline_window_size):
         app_state = self.db.load_pickled("appstate") or self._initialize_app_state()
@@ -191,12 +209,12 @@ class App:
         )
         self.skip_reporter = SkipReporter(
             state=app_state.skip_reporter_state,
-            get_primary_for_step=self.get_primary_for_step,
+            primary_oracle=self.primary_oracle,
             grace_period=GRACE_PERIOD,
         )
         self.offline_reporter = OfflineReporter(
             state=app_state.offline_reporter_state,
-            get_primary_for_step=self.get_primary_for_step,
+            primary_oracle=self.primary_oracle,
             offline_window_size=offline_window_size,
             allowed_skip_rate=skip_rate,
         )
