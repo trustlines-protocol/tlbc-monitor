@@ -1,15 +1,112 @@
 from collections.abc import Mapping
 import bisect
-from itertools import chain, takewhile, dropwhile
+from itertools import takewhile, dropwhile
 from typing import NamedTuple, List, Optional, Sequence
 
 from web3 import Web3
 
-from eth_utils import is_hex_address
+from eth_utils import is_hex_address, decode_hex
 from eth_utils.toolz import last
 
 
-VALIDATOR_CONTRACT_ABI = None
+VALIDATOR_CONTRACT_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "", "type": "uint256"}],
+        "name": "pendingValidators",
+        "outputs": [{"name": "", "type": "address"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [{"name": "_epochStart", "type": "uint256"}],
+        "name": "getValidators",
+        "outputs": [{"name": "", "type": "address[]"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "getEpochStartHeights",
+        "outputs": [{"name": "", "type": "uint256[]"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "constant": False,
+        "inputs": [],
+        "name": "finalizeChange",
+        "outputs": [],
+        "payable": False,
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "constant": False,
+        "inputs": [
+            {"name": "_rlpUnsignedHeaderOne", "type": "bytes"},
+            {"name": "_signatureOne", "type": "bytes"},
+            {"name": "_rlpUnsignedHeaderTwo", "type": "bytes"},
+            {"name": "_signatureTwo", "type": "bytes"},
+        ],
+        "name": "reportMaliciousValidator",
+        "outputs": [],
+        "payable": False,
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "finalized",
+        "outputs": [{"name": "", "type": "bool"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "getValidators",
+        "outputs": [{"name": "_validators", "type": "address[]"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "constant": False,
+        "inputs": [{"name": "_validators", "type": "address[]"}],
+        "name": "init",
+        "outputs": [{"name": "_success", "type": "bool"}],
+        "payable": False,
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "systemAddress",
+        "outputs": [{"name": "", "type": "address"}],
+        "payable": False,
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {"payable": False, "stateMutability": "nonpayable", "type": "fallback"},
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "name": "_parentHash", "type": "bytes32"},
+            {"indexed": False, "name": "_newSet", "type": "address[]"},
+        ],
+        "name": "InitiateChange",
+        "type": "event",
+    },
+]
 
 
 def validate_validator_definition(validator_definition):
@@ -213,7 +310,10 @@ class ContractEpochFetcher:
 
         new_epochs = []
         for epoch_start_height in new_epoch_start_heights:
-            validators = self._contract.call().getValidators(epoch_start_height)
+            validators = [
+                decode_hex(validator)
+                for validator in self._contract.call().getValidators(epoch_start_height)
+            ]
             epoch = Epoch(
                 start_height=max(epoch_start_height, self._transition_to_height),
                 validators=validators,
@@ -221,9 +321,9 @@ class ContractEpochFetcher:
             )
             new_epochs.append(epoch)
 
-        if self.earliest_fetched_epoch is None:
-            self._latest_fetched_epoch = new_epochs[0]
-        if self.latest_fetched_epoch is None:
+        if new_epochs:
+            if self.earliest_fetched_epoch is None:
+                self._earliest_fetched_epoch = new_epochs[0]
             self._latest_fetched_epoch = new_epochs[-1]
 
         return new_epochs
@@ -244,11 +344,10 @@ class EpochFetcher:
         ]
 
     def fetch_new_epochs(self) -> List[Epoch]:
-        new_epochs = list(
-            chain(
-                fetcher.fetch_new_epochs() for fetcher in self._contract_epoch_fetchers
-            )
-        )
+        new_epochs: List[Epoch] = []
+        for fetcher in self._contract_epoch_fetchers:
+            epochs = fetcher.fetch_new_epochs()
+            new_epochs += epochs
 
         self._remove_stale_fetchers()
 
