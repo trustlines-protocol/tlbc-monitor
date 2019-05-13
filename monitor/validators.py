@@ -294,7 +294,7 @@ class ContractEpochFetcher:
         self._last_fetch_height = self._w3.eth.blockNumber
         epoch_start_heights = self._contract.call().getEpochStartHeights()
 
-        # epoch start heights will only be updated in finalizeChange which is called at most once
+        # epoch start heights will only be updated in the contract by the finalizeChange function which is called at most once
         # per block
         assert len(set(epoch_start_heights)) == len(epoch_start_heights)
         assert sorted(epoch_start_heights) == epoch_start_heights
