@@ -5,7 +5,8 @@ from typing import NamedTuple, List, Optional, Sequence
 
 from web3 import Web3
 
-from eth_utils import is_hex_address, last
+from eth_utils import is_hex_address
+from eth_utils.toolz import last
 
 
 VALIDATOR_CONTRACT_ABI = None
