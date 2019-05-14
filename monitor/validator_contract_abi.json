@@ -1,0 +1,172 @@
+[
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "pendingValidators",
+        "outputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "_epochStart",
+                "type": "uint256"
+            }
+        ],
+        "name": "getValidators",
+        "outputs": [
+            {
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "getEpochStartHeights",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256[]"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [],
+        "name": "finalizeChange",
+        "outputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_rlpUnsignedHeaderOne",
+                "type": "bytes"
+            },
+            {
+                "name": "_signatureOne",
+                "type": "bytes"
+            },
+            {
+                "name": "_rlpUnsignedHeaderTwo",
+                "type": "bytes"
+            },
+            {
+                "name": "_signatureTwo",
+                "type": "bytes"
+            }
+        ],
+        "name": "reportMaliciousValidator",
+        "outputs": [],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "finalized",
+        "outputs": [
+            {
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "getValidators",
+        "outputs": [
+            {
+                "name": "_validators",
+                "type": "address[]"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "constant": false,
+        "inputs": [
+            {
+                "name": "_validators",
+                "type": "address[]"
+            }
+        ],
+        "name": "init",
+        "outputs": [
+            {
+                "name": "_success",
+                "type": "bool"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [],
+        "name": "systemAddress",
+        "outputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "fallback"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_parentHash",
+                "type": "bytes32"
+            },
+            {
+                "indexed": false,
+                "name": "_newSet",
+                "type": "address[]"
+            }
+        ],
+        "name": "InitiateChange",
+        "type": "event"
+    }
+]
