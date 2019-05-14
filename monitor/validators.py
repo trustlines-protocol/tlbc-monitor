@@ -428,10 +428,9 @@ class EpochFetcher:
     def __init__(
         self, w3: Web3, validator_definition_ranges: List[ValidatorDefinitionRange]
     ) -> None:
-        self._w3 = w3
         self._validator_definition_ranges = validator_definition_ranges
         self._contract_epoch_fetchers = [
-            ContractEpochFetcher(self._w3, validator_definition_range, index)
+            ContractEpochFetcher(w3, validator_definition_range, index)
             for index, validator_definition_range in enumerate(
                 self._validator_definition_ranges
             )
