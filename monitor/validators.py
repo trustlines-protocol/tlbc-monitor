@@ -2,7 +2,7 @@ import bisect
 from collections.abc import Mapping
 from itertools import chain, takewhile, dropwhile
 import json
-from typing import NamedTuple, List, Optional, Sequence
+from typing import NamedTuple, List, Dict, Optional
 import os
 
 from eth_utils import is_hex_address, to_canonical_address, decode_hex
@@ -161,11 +161,9 @@ def get_static_epochs(
 
 
 class PrimaryOracle:
-    def __init__(self, static_epochs: Sequence[Epoch] = None) -> None:
-        self._epochs = {epoch.start_height: epoch for epoch in static_epochs or []}
-        self._ordered_start_heights = sorted(
-            epoch.start_height for epoch in self._epochs.values()
-        )
+    def __init__(self) -> None:
+        self._epochs: Dict[int, Epoch] = {}
+        self._ordered_start_heights: List[int] = []
 
     def get_primary(self, *, height: int, step: int):
         validators = self._get_validators(height)
