@@ -93,11 +93,16 @@ class OfflineReporter:
     def _is_offline(self, validator, skips, current_step):
         window = range(current_step - self.offline_window_size + 1, current_step + 1)
 
+        # FIXME: Use the height of the block that should have been proposed here. For now,
+        # `2**64 - 1` is used as a placeholder for no particular reason other than it being a very
+        # large number (presumably the highest one supported by Parity), so that the last validator
+        # set should be used at all times. See
+        # https://github.com/trustlines-protocol/tlbc-monitor/issues/32
         assigned_steps = [
             step
             for step in window
             if self.primary_oracle.get_primary(height=2 ** 64 - 1, step=step)
-            == validator  # FIXME
+            == validator
         ]
         missed_steps_in_window = [step for step in skips if step in window]
 
