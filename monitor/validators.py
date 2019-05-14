@@ -283,6 +283,7 @@ class PrimaryOracle:
             return epoch.validators
 
     def add_epoch(self, epoch: Epoch) -> None:
+        """Add an epoch if it is relevant."""
         if not epoch.validators:
             raise ValueError("Validator set of epoch is empty")
 
@@ -291,9 +292,17 @@ class PrimaryOracle:
                 bisect.insort(self._ordered_start_heights, epoch.start_height)
             self._epochs[epoch.start_height] = epoch
 
-            self._remove_epochs_rendered_obsolete(epoch)
+            self._remove_epochs_rendered_irrelevant(epoch)
 
     def _is_relevant(self, epoch: Epoch) -> bool:
+        """Check if an epoch should be added to the already known set of epochs.
+
+        An epoch is considered relevant if the preceding epoch does not stem from a later validator
+        definition range. For instance, if there's only one known epoch with start height 10 from
+        the 5th validator definition range, an epoch starting at height 11 would be relevant if it
+        belongs to the 5th or later validator definition range, but not if it belongs to the 4th or
+        earlier one.
+        """
         earlier_epoch_start_heights = takewhile(
             lambda start_height: start_height <= epoch.start_height,
             self._ordered_start_heights,
@@ -309,7 +318,15 @@ class PrimaryOracle:
                 <= epoch.validator_definition_index
             )
 
-    def _remove_epochs_rendered_obsolete(self, inserted_epoch: Epoch) -> None:
+    def _remove_epochs_rendered_irrelevant(self, inserted_epoch: Epoch) -> None:
+        """Remove epochs that have become irrelevant by adding another epoch.
+
+        For instance, if there is an epoch starting at height 10 from the 5th validator definition
+        range and an epoch starting at height 9 from the 4th validator definition range is added,
+        the former epoch would have been rendered irrelevant and would be removed by this method.
+
+        For the definition of (ir)relevant, see also the docstring to `_is_relevant`.
+        """
         later_epoch_indices_and_start_heights = dropwhile(
             lambda index_and_height: index_and_height[1] <= inserted_epoch.start_height,
             enumerate(self._ordered_start_heights),
@@ -436,6 +453,14 @@ class EpochFetcher:
             continue
 
     def _pop_first_fetcher_if_stale(self) -> Optional[ContractEpochFetcher]:
+        """Remove the first contract epoch fetcher if it is stale.
+
+        A fetcher is stale if all epochs that it could possibly retrieve would be irrelevant to us.
+        This is determined based on the block height at which the fetcher was last called and the
+        earliest epoch found by the second fetcher. For instance, if the first fetcher has been
+        called at height 10 and the earliest epoch of the second fetcher starts at height 10 as
+        well, the first fetcher is considered stale.
+        """
         if len(self._contract_epoch_fetchers) == 0:
             return None
 
