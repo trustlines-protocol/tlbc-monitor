@@ -66,9 +66,12 @@ class SkipReporter:
         # report misses
         missed_steps = self.get_missed_steps()
         for step in missed_steps:
-            primary = self.primary_oracle.get_primary(
-                height=2 ** 64 - 1, step=step
-            )  # FIXME
+            # FIXME: Use the height of the block that should have been proposed here. For now,
+            # `2**64 - 1` is used as a placeholder for no particular reason other than it being a
+            # very large number (presumably the highest one supported by Parity), so that the last
+            # validator set should be used at all times. See
+            # https://github.com/trustlines-protocol/tlbc-monitor/issues/32
+            primary = self.primary_oracle.get_primary(height=2 ** 64 - 1, step=step)
             self.logger.info(
                 "detected missed step", primary=encode_hex(primary), step=step
             )
