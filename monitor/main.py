@@ -245,7 +245,7 @@ class App:
     #
     # Reporters
     #
-    def skip_logger(self, validator, step):
+    def skip_logger(self, validator, step, block_height):
         skip_timestamp = step_number_to_timestamp(step)
         self.skip_file.write(
             "{},{},{}\n".format(

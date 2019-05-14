@@ -10,6 +10,8 @@ from monitor.validators import PrimaryOracle
 
 
 class OfflineReporterStateV1(NamedTuple):
+    missed_steps: Any
+    latest_block_height: Any
     reported_validators: Any
     recent_skips_by_validator: Any
 
@@ -34,6 +36,9 @@ class OfflineReporter:
 
         self.offline_window_size = offline_window_size
         self.allowed_skip_rate = allowed_skip_rate
+
+        self.missed_steps = state.missed_steps
+        self.latest_block_height = state.latest_block_height
 
         self.reported_validators = state.reported_validators
         self.recent_skips_by_validator = defaultdict(
@@ -62,9 +67,13 @@ class OfflineReporter:
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
 
-    def __call__(self, primary, step):
+    def __call__(self, primary, step, latest_block_height):
         if primary in self.reported_validators:
             return  # ignore validators that have already been reported
+
+        self.missed_steps.add(step)
+        self.missed_steps.discard(step - self.offline_window_size)
+        self.latest_block_height = latest_block_height
 
         self._clear_old_skips(step)
         self.recent_skips_by_validator[primary].add(step)
@@ -91,15 +100,24 @@ class OfflineReporter:
         )
 
     def _is_offline(self, validator, skips, current_step):
-        window = range(current_step - self.offline_window_size + 1, current_step + 1)
 
-        assigned_steps = [
-            step
-            for step in window
-            if self.primary_oracle.get_primary(height=2 ** 64 - 1, step=step)
-            == validator  # FIXME
-        ]
+        assigned_steps = self._get_assigned_steps_in_offline_window(validator, current_step)
+
+        window = range(current_step - self.offline_window_size + 1, current_step + 1)
         missed_steps_in_window = [step for step in skips if step in window]
 
         skip_rate = Fraction(len(missed_steps_in_window), len(assigned_steps))
         return skip_rate > self.allowed_skip_rate
+
+    def _get_assigned_steps_in_offline_window(self, validator, current_step):
+        window = range(current_step - self.offline_window_size + 1, current_step + 1)
+        reversed_window = reversed(window)
+        assigned_steps = 0
+        block_height = self.latest_block_height
+        for step in reversed_window:
+            if self.primary_oracle.get_primary(height=block_height, step=step) == validator:
+                assigned_steps += 1
+            if step not in self.missed_steps:
+                block_height -= 1
+
+        return assigned_steps
