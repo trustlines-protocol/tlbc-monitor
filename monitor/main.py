@@ -194,10 +194,13 @@ class App:
             validator_definition_ranges = parse_validator_definition(
                 validator_definition
             )
-            static_epochs = get_static_epochs(validator_definition_ranges)
 
             self.epoch_fetcher = EpochFetcher(self.w3, validator_definition_ranges)
-            self.primary_oracle = PrimaryOracle(static_epochs)
+            self.primary_oracle = PrimaryOracle()
+
+            static_epochs = get_static_epochs(validator_definition_ranges)
+            for epoch in static_epochs:
+                self.primary_oracle.add_epoch(epoch)
 
             self._update_epochs()
 
