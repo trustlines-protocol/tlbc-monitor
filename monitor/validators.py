@@ -1,9 +1,9 @@
 import bisect
 from collections.abc import Mapping
-from copy import copy
 from itertools import chain, takewhile, dropwhile
-import operator
-from typing import NamedTuple, cast, List, Optional, Sequence
+import json
+from typing import NamedTuple, List, Optional, Sequence
+import os
 
 from eth_utils import is_hex_address, to_canonical_address, decode_hex
 from eth_utils.toolz import sliding_window, last
@@ -11,104 +11,11 @@ from eth_utils.toolz import sliding_window, last
 from web3 import Web3
 
 
-VALIDATOR_CONTRACT_ABI = [
-    {
-        "constant": True,
-        "inputs": [{"name": "", "type": "uint256"}],
-        "name": "pendingValidators",
-        "outputs": [{"name": "", "type": "address"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [{"name": "_epochStart", "type": "uint256"}],
-        "name": "getValidators",
-        "outputs": [{"name": "", "type": "address[]"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "getEpochStartHeights",
-        "outputs": [{"name": "", "type": "uint256[]"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "constant": False,
-        "inputs": [],
-        "name": "finalizeChange",
-        "outputs": [],
-        "payable": False,
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "constant": False,
-        "inputs": [
-            {"name": "_rlpUnsignedHeaderOne", "type": "bytes"},
-            {"name": "_signatureOne", "type": "bytes"},
-            {"name": "_rlpUnsignedHeaderTwo", "type": "bytes"},
-            {"name": "_signatureTwo", "type": "bytes"},
-        ],
-        "name": "reportMaliciousValidator",
-        "outputs": [],
-        "payable": False,
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "finalized",
-        "outputs": [{"name": "", "type": "bool"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "getValidators",
-        "outputs": [{"name": "_validators", "type": "address[]"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {
-        "constant": False,
-        "inputs": [{"name": "_validators", "type": "address[]"}],
-        "name": "init",
-        "outputs": [{"name": "_success", "type": "bool"}],
-        "payable": False,
-        "stateMutability": "nonpayable",
-        "type": "function",
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "systemAddress",
-        "outputs": [{"name": "", "type": "address"}],
-        "payable": False,
-        "stateMutability": "view",
-        "type": "function",
-    },
-    {"payable": False, "stateMutability": "nonpayable", "type": "fallback"},
-    {
-        "anonymous": False,
-        "inputs": [
-            {"indexed": True, "name": "_parentHash", "type": "bytes32"},
-            {"indexed": False, "name": "_newSet", "type": "address[]"},
-        ],
-        "name": "InitiateChange",
-        "type": "event",
-    },
-]
+VALIDATOR_CONTRACT_ABI_PATH = os.path.join(
+    os.path.dirname(__file__), "validator_contract_abi.json"
+)
+with open(VALIDATOR_CONTRACT_ABI_PATH, "r") as validator_contract_abi_file:
+    VALIDATOR_CONTRACT_ABI = json.load(validator_contract_abi_file)
 
 
 def validate_validator_definition(validator_definition):
