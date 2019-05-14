@@ -9,7 +9,12 @@ from monitor.validators import PrimaryOracle
 
 class SkipReporterState(NamedTuple):
     latest_step: Any
-    open_steps: Any
+    open_skipped_proposals: Any
+
+
+class SkippedProposal(NamedTuple):
+    step: int
+    block_height: int
 
 
 class SkipReporter:
@@ -28,7 +33,7 @@ class SkipReporter:
         self.grace_period = grace_period
 
         self.latest_step = state.latest_step
-        self.open_steps = state.open_steps
+        self.open_skipped_proposals = state.open_skipped_proposals
 
         self.report_callbacks: List[Callable[[bytes, int], Any]] = []
 
@@ -38,12 +43,12 @@ class SkipReporter:
 
     @staticmethod
     def get_fresh_state():
-        return SkipReporterState(latest_step=None, open_steps=set())
+        return SkipReporterState(latest_step=None, open_skipped_proposals=set())
 
     @property
     def state(self):
         return SkipReporterState(
-            latest_step=self.latest_step, open_steps=self.open_steps
+            latest_step=self.latest_step, open_skipped_proposals=self.open_skipped_proposals  # TODO: is it ok that I store a set of SkippedProposals instead of ints
         )
 
     def register_report_callback(self, callback):
@@ -51,6 +56,7 @@ class SkipReporter:
 
     def __call__(self, block):
         block_step = int(block.step)
+        block_height = int(block.height)
 
         # don't report skips between genesis and the first block as genesis always has step 0
         if self.latest_step is None:
@@ -58,37 +64,43 @@ class SkipReporter:
             self.logger.info("received first block", step=self.latest_step)
             return
 
-        self.update_open_steps(block_step)
+        self.update_open_skipped_proposals(block_step, block_height)
 
-        # remove block step from open step list
-        self.open_steps.discard(block_step)
+        self.remove_open_skipped_proposals_with_step(block_step)
 
         # report misses
-        missed_steps = self.get_missed_steps()
-        for step in missed_steps:
-            # FIXME: Use the height of the block that should have been proposed here. For now,
-            # `2**64 - 1` is used as a placeholder for no particular reason other than it being a
-            # very large number (presumably the highest one supported by Parity), so that the last
-            # validator set should be used at all times. See
-            # https://github.com/trustlines-protocol/tlbc-monitor/issues/32
-            primary = self.primary_oracle.get_primary(height=2 ** 64 - 1, step=step)
+        missed_proposals = self.get_missed_proposals()
+        reported_proposals = set()
+        for proposal in missed_proposals:
+            primary = self.primary_oracle.get_primary(
+                height=proposal.block_height, step=proposal.step
+            )
             self.logger.info(
-                "detected missed step", primary=encode_hex(primary), step=step
+                "detected missed step", primary=encode_hex(primary), step=proposal.step
             )
             for callback in self.report_callbacks:
-                callback(primary, step)
+                callback(primary, proposal.step)
+
+            reported_proposals.add(proposal)
 
         # remove misses from open steps as they have been reported already
-        self.open_steps -= set(missed_steps)
+        self.open_skipped_proposals -= set(reported_proposals)
 
-    def update_open_steps(self, current_step):
+    def remove_open_skipped_proposals_with_step(self, step):
+        for proposal in self.open_skipped_proposals:
+            if proposal.step == step:
+                self.open_skipped_proposals.remove(proposal)
+
+    def update_open_skipped_proposals(self, current_step, latest_block_height):
         if current_step > self.latest_step:
-            self.open_steps |= set(range(self.latest_step + 1, current_step + 1))
+            for step in range(self.latest_step + 1, current_step + 1):
+                skipped = SkippedProposal(current_step, latest_block_height)
+                self.open_skipped_proposals.add(skipped)
+            # self.open_steps |= set(range(self.latest_step + 1, current_step + 1))
             self.latest_step = current_step
 
-    def get_missed_steps(self):
+    def get_missed_proposals(self):
         grace_period_end = self.latest_step - self.grace_period
-        missed_steps = sorted(
-            [step for step in self.open_steps if step < grace_period_end]
-        )
-        return missed_steps
+        missed_skips = [skipped_proposal for skipped_proposal in self.open_skipped_proposals if skipped_proposal.step < grace_period_end]
+        missed_skips = sorted(missed_skips, key=lambda x: x.step)
+        return missed_skips
