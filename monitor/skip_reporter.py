@@ -48,7 +48,7 @@ class SkipReporter:
     @property
     def state(self):
         return SkipReporterState(
-            latest_step=self.latest_step, open_skipped_proposals=self.open_skipped_proposals  # TODO: is it ok that I store a set of SkippedProposals instead of ints
+            latest_step=self.latest_step, open_skipped_proposals=self.open_skipped_proposals
         )
 
     def register_report_callback(self, callback):
@@ -79,7 +79,7 @@ class SkipReporter:
                 "detected missed step", primary=encode_hex(primary), step=proposal.step
             )
             for callback in self.report_callbacks:
-                callback(primary, proposal.step)
+                callback(primary, proposal.step, block_height)
 
             reported_proposals.add(proposal)
 
@@ -87,16 +87,16 @@ class SkipReporter:
         self.open_skipped_proposals -= set(reported_proposals)
 
     def remove_open_skipped_proposals_with_step(self, step):
-        for proposal in self.open_skipped_proposals:
-            if proposal.step == step:
-                self.open_skipped_proposals.remove(proposal)
+
+        self.open_skipped_proposals = {
+            proposal for proposal in self.open_skipped_proposals if proposal.step != step
+        }
 
     def update_open_skipped_proposals(self, current_step, latest_block_height):
         if current_step > self.latest_step:
             for step in range(self.latest_step + 1, current_step + 1):
-                skipped = SkippedProposal(current_step, latest_block_height)
-                self.open_skipped_proposals.add(skipped)
-            # self.open_steps |= set(range(self.latest_step + 1, current_step + 1))
+                skipped_proposal = SkippedProposal(current_step, latest_block_height)
+                self.open_skipped_proposals.add(skipped_proposal)
             self.latest_step = current_step
 
     def get_missed_proposals(self):
