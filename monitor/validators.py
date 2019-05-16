@@ -5,7 +5,7 @@ import json
 from typing import cast, NamedTuple, List, Dict, Optional, Sequence
 import os
 
-from eth_utils import is_hex_address, decode_hex
+from eth_utils import is_hex_address, decode_hex, to_canonical_address
 from eth_utils.toolz import sliding_window, last
 
 from web3 import Web3
@@ -99,21 +99,26 @@ def get_validator_definition_ranges(validator_definition):
     ):
         [(config_type, config_data)] = range_config.items()
 
-        validators = None
-        contract_address = None
         if config_type == "list":
             is_contract = False
-            validators = config_data
+            validators = [
+                to_canonical_address(validator_address)
+                for validator_address in config_data
+            ]
+            contract_address = None
         elif config_type in ["contract", "safeContract"]:
             is_contract = True
-            contract_address = config_data
+            validators = None
+            contract_address = to_canonical_address(config_data)
         else:
             assert False, "Unreachable. Invalid config type."
 
         result.append(
             ValidatorDefinitionRange(
-                enter_height=range_height,
-                leave_height=next_range_height,
+                enter_height=int(range_height),
+                leave_height=int(next_range_height)
+                if next_range_height is not None
+                else None,
                 is_contract=is_contract,
                 validators=validators,
                 contract_address=contract_address,

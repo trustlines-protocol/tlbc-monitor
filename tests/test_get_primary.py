@@ -1,5 +1,7 @@
 import pytest
 
+from eth_utils import decode_hex
+
 from monitor.validators import (
     validate_validator_definition,
     validate_validator_definition_order,
@@ -85,33 +87,37 @@ def test_get_ranges():
     ranges = get_validator_definition_ranges(validator_definition)
     assert ranges == [
         ValidatorDefinitionRange(
-            leave_height="100",
-            enter_height="0",
+            enter_height=0,
+            leave_height=100,
             is_contract=False,
+            contract_address=None,
             validators=[
-                "0x0000000000000000000000000000000000000000",
-                "0x1111111111111111111111111111111111111111",
+                decode_hex("0x0000000000000000000000000000000000000000"),
+                decode_hex("0x1111111111111111111111111111111111111111"),
             ],
         ),
         ValidatorDefinitionRange(
-            leave_height="200",
-            enter_height="100",
+            enter_height=100,
+            leave_height=200,
             is_contract=True,
-            contract_address="0x0000000000000000000000000000000000000000",
+            contract_address=decode_hex("0x0000000000000000000000000000000000000000"),
+            validators=None,
         ),
         ValidatorDefinitionRange(
-            leave_height="300",
-            enter_height="200",
+            enter_height=200,
+            leave_height=300,
             is_contract=True,
-            contract_address="0x1111111111111111111111111111111111111111",
+            contract_address=decode_hex("0x1111111111111111111111111111111111111111"),
+            validators=None,
         ),
         ValidatorDefinitionRange(
+            enter_height=300,
             leave_height=None,
-            enter_height="300",
             is_contract=False,
+            contract_address=None,
             validators=[
-                "0x2222222222222222222222222222222222222222",
-                "0x3333333333333333333333333333333333333333",
+                decode_hex("0x2222222222222222222222222222222222222222"),
+                decode_hex("0x3333333333333333333333333333333333333333"),
             ],
         ),
     ]
