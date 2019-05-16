@@ -117,11 +117,17 @@ class BlockFetcher:
         )
         self._insert_branch([block])
 
-    def fetch_and_insert_new_blocks(self, max_number_of_blocks=5000):
-        """Fetches up to `max_number_of_blocks` blocks and updates the internal state
+    def fetch_and_insert_new_blocks(
+        self, *, max_number_of_blocks=5000, max_block_number: int = None
+    ):
+        """Fetches up to `max_number_of_blocks` blocks and only up to blocknumber `max_block_number` (inclusive)
+        and updates the internal state
             If a full branch is fetched it also inserts the new blocks
             Returns the number of fetched blocks
         """
+        if max_number_of_blocks < 1:
+            return 0
+
         number_of_synced_blocks = 0
 
         if self.db.is_empty():
@@ -130,30 +136,38 @@ class BlockFetcher:
 
         # sync forwards at most up until the forward sync target, but no more than
         # max_number_of_blocks
-        max_forward_sync_blocks = max(
-            0,
-            min(
-                max_number_of_blocks - number_of_synced_blocks,
-                self.fetch_forward_sync_target() - self.head.number,
-            ),
+        max_forward_block_number = (
+            self.fetch_forward_sync_target()
+            if max_block_number is None
+            else min(self.fetch_forward_sync_target(), max_block_number)
         )
-        if max_forward_sync_blocks > 0:
-            number_of_synced_blocks += self._sync_forwards(max_forward_sync_blocks)
+        max_forward_sync_blocks = max(0, max_number_of_blocks - number_of_synced_blocks)
+
+        number_of_synced_blocks += self._sync_forwards(
+            max_number_of_blocks=max_forward_sync_blocks,
+            max_block_number=max_forward_block_number,
+        )
 
         # sync backwards until we have synced max_number_of_blocks in total or we are fully synced
         assert 0 <= number_of_synced_blocks <= max_number_of_blocks
         max_backward_sync_blocks = max_number_of_blocks - number_of_synced_blocks
-        if max_backward_sync_blocks > 0:
-            number_of_synced_blocks += self._sync_backwards(max_backward_sync_blocks)
+
+        number_of_synced_blocks += self._sync_backwards(
+            max_number_of_blocks=max_backward_sync_blocks,
+            max_block_number=max_block_number,
+        )
 
         return number_of_synced_blocks
 
     def fetch_forward_sync_target(self):
         return max(self.w3.eth.blockNumber - self.max_reorg_depth, 0)
 
-    def _sync_forwards(self, max_number_of_blocks):
+    def _sync_forwards(
+        self, *, max_number_of_blocks: int, max_block_number: int
+    ) -> int:
         block_numbers_to_fetch = range(
-            self.head.number + 1, self.head.number + 1 + max_number_of_blocks
+            self.head.number + 1,
+            min(self.head.number + 1 + max_number_of_blocks, max_block_number + 1),
         )
 
         blocks = list(
@@ -169,9 +183,13 @@ class BlockFetcher:
         self._insert_branch(blocks)
         return len(blocks)
 
-    def _sync_backwards(self, max_blocks_to_fetch):
+    def _sync_backwards(
+        self, *, max_number_of_blocks: int, max_block_number: int = None
+    ) -> int:
         branch_length_before = len(self.current_branch)
-        complete = self._fetch_branch(max_blocks_to_fetch)
+        complete = self._fetch_branch(
+            max_number_of_blocks, blocknr_or_hash=max_block_number
+        )
         number_of_fetched_blocks = len(self.current_branch) - branch_length_before
 
         if complete and len(self.current_branch) > 0:
@@ -195,12 +213,19 @@ class BlockFetcher:
 
         return block
 
-    def _fetch_branch(self, max_blocks_to_fetch):
-        if max_blocks_to_fetch <= 0:
-            raise ValueError("Maximum number of blocks to fetch must be positive")
+    def _fetch_branch(self, max_blocks_to_fetch, blocknr_or_hash=None):
 
+        if blocknr_or_hash is None:
+            blocknr_or_hash = "latest"
+
+        if max_blocks_to_fetch < 0:
+            raise ValueError("Maximum number of blocks to fetch must be positive")
+        elif max_blocks_to_fetch == 0:
+            return False
+
+        number_of_fetched_blocks = 0
         if len(self.current_branch) == 0:
-            head = self._get_block("latest")
+            head = self._get_block(blocknr_or_hash)
             if self.db.contains(head.hash):
                 self.logger.info(
                     "no new blocks",
@@ -210,15 +235,15 @@ class BlockFetcher:
                 return True
 
             self.current_branch = [head]
+            number_of_fetched_blocks += 1
 
-        number_of_fetched_blocks = 0
-        while not self.db.contains(self.current_branch[-1].parentHash):
+        while (
+            not number_of_fetched_blocks >= max_blocks_to_fetch
+            and not self.db.contains(self.current_branch[-1].parentHash)
+        ):
             parent = self._get_block(self.current_branch[-1].parentHash)
             self.current_branch.append(parent)
-
             number_of_fetched_blocks += 1
-            if number_of_fetched_blocks >= max_blocks_to_fetch:
-                break
 
         complete = self.db.contains(self.current_branch[-1].parentHash)
         return complete

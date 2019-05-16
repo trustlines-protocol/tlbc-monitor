@@ -59,6 +59,25 @@ def test_number_of_fetched_blocks(eth_tester, block_fetcher):
     assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
 
 
+# test 4,5, 6, because 5 is forward/backward switch number
+@pytest.mark.parametrize("max_block_number", [4, 5, 6])
+def test_max_blocknumber_of_fetched_blocks(
+    eth_tester, w3, block_fetcher, max_block_number
+):
+    eth_tester.mine_blocks(8)
+    assert w3.eth.blockNumber == 8
+    assert (
+        block_fetcher.fetch_and_insert_new_blocks(max_block_number=max_block_number)
+        == max_block_number + 1
+    )  # genesis + mined blocks
+    assert block_fetcher.head.number == max_block_number
+    assert (
+        block_fetcher.fetch_and_insert_new_blocks(max_block_number=max_block_number)
+        == 0
+    )
+    assert block_fetcher.head.number == max_block_number
+
+
 def test_fail_to_sync_from_block_number_that_does_not_exist(block_fetcher):
     # Work on the chain with only the genesis block.
     block_fetcher.initial_block_resolver = ResolveBlockByNumber(1)
@@ -71,17 +90,23 @@ def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_call
     eth_tester.mine_blocks(10)
 
     # forward sync until block 5
-    assert block_fetcher.fetch_and_insert_new_blocks(6) == 6
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=6) == 6
+    assert block_fetcher.head.number == 5
+    assert len(block_fetcher.current_branch) == 0
     assert report_callback.call_count == 6 - 1  # genesis is not reported
     report_callback.reset_mock()
 
     # sync blocks 6 to 7 forwards, start backward sync with block 10
-    assert block_fetcher.fetch_and_insert_new_blocks(3)
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=3) == 3
+    assert block_fetcher.head.number == 7
+    assert len(block_fetcher.current_branch) == 1
     assert report_callback.call_count == 2
     report_callback.reset_mock()
 
     # finish backward sync (block 8 and 9)
-    assert block_fetcher.fetch_and_insert_new_blocks(2)
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
+    assert len(block_fetcher.current_branch) == 0
+    assert block_fetcher.head.number == 10
     assert report_callback.call_count == 3
     report_callback.reset_mock()
 
@@ -90,9 +115,9 @@ def test_fetch_multiple_blocks_with_max_number_of_blocks(
     eth_tester, block_fetcher, report_callback
 ):
     eth_tester.mine_blocks(3)
-    block_fetcher.fetch_and_insert_new_blocks(2)
+    block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=3)
     report_callback.assert_not_called()
-    block_fetcher.fetch_and_insert_new_blocks(1)
+    block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=1)
     assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
         1,
         2,
@@ -102,8 +127,8 @@ def test_fetch_multiple_blocks_with_max_number_of_blocks(
 
 def test_fetch_exact_number_of_blocks(eth_tester, block_fetcher, report_callback):
     eth_tester.mine_blocks(5)
-    block_fetcher.fetch_and_insert_new_blocks(5)
-    assert report_callback.call_count == 5
+    block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=6)
+    assert report_callback.call_count == 5  # No callback for the genesis block
 
 
 def test_noticed_reorg(w3, eth_tester, block_fetcher, report_callback):
@@ -321,11 +346,11 @@ def test_restart(w3, eth_tester, block_fetcher, report_callback):
 def test_restart_with_fetch(w3, eth_tester, block_fetcher, report_callback):
     new_block_hashes = eth_tester.mine_blocks(6)
     reports = [call(w3.eth.getBlock(h)) for h in new_block_hashes]
-    block_fetcher.fetch_and_insert_new_blocks(3)
+    block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=4)
 
     restarted_block_fetcher = BlockFetcher(block_fetcher.state, w3, block_fetcher.db)
     restarted_block_fetcher.register_report_callback(report_callback)
-    restarted_block_fetcher.fetch_and_insert_new_blocks(3)
+    restarted_block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=3)
 
     assert report_callback.call_args_list == reports
 
