@@ -25,7 +25,7 @@ from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_bl
 from monitor.validators import (
     EpochFetcher,
     PrimaryOracle,
-    parse_validator_definition,
+    get_validator_definition_ranges,
     get_static_epochs,
 )
 
@@ -138,7 +138,7 @@ class App:
         self._update_epochs()
         with self.db.persistent_session() as session:
             number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
-                max_number_of_blocks=500
+                max_number_of_blocks=500, max_block_height=self.epoch_fetcher.max_height
             )
             self.db.store_pickled("appstate", self.app_state)
             self.skip_file.flush()
@@ -158,6 +158,7 @@ class App:
         new_epochs = self.epoch_fetcher.fetch_new_epochs()
         for epoch in new_epochs:
             self.primary_oracle.add_epoch(epoch)
+        self.primary_oracle.max_height = self.epoch_fetcher.max_height
 
     def stop(self):
         self.logger.info(
@@ -191,7 +192,7 @@ class App:
             validator_definition = chain_spec["engine"]["authorityRound"]["params"][
                 "validators"
             ]
-            validator_definition_ranges = parse_validator_definition(
+            validator_definition_ranges = get_validator_definition_ranges(
                 validator_definition
             )
 

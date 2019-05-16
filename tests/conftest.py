@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from eth_tester import EthereumTester
@@ -78,4 +80,5 @@ def primary_oracle(validators):
     primary_oracle.add_epoch(
         Epoch(start_height=0, validators=validators, validator_definition_index=0)
     )
+    primary_oracle.max_height = math.inf
     return primary_oracle
