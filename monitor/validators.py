@@ -5,7 +5,7 @@ import json
 from typing import NamedTuple, List, Dict, Optional
 import os
 
-from eth_utils import is_hex_address, to_canonical_address, decode_hex
+from eth_utils import is_hex_address, decode_hex
 from eth_utils.toolz import sliding_window, last
 
 from web3 import Web3
@@ -73,7 +73,6 @@ def validate_validator_definition(validator_definition):
                 ), "Unreachable. Multi list entry type has already been validated."
 
 
-# Added for compatibility with the upcoming pull request
 class ValidatorDefinitionRange(NamedTuple):
     enter_height: int
     leave_height: int
@@ -130,17 +129,6 @@ class Epoch(NamedTuple):
     validator_definition_index: int
 
 
-class ValidatorDefinitionRange(NamedTuple):
-    # first block height at which this definition is considered
-    transition_to_height: int
-    # first block height at which the following definition is considered, or None if it is the last
-    # definition
-    transition_from_height: Optional[int]
-    is_contract: bool
-    contract_address: Optional[bytes]
-    validators: Optional[List[bytes]]
-
-
 def get_static_epochs(
     validator_definition_ranges: List[ValidatorDefinitionRange]
 ) -> List[Epoch]:
@@ -151,7 +139,7 @@ def get_static_epochs(
             assert validator_definition_range.validators is not None
 
             epoch = Epoch(
-                start_height=validator_definition_range.transition_to_height,
+                start_height=validator_definition_range.enter_height,
                 validators=validator_definition_range.validators,
                 validator_definition_index=index,
             )
@@ -271,7 +259,7 @@ class ContractEpochFetcher:
             abi=VALIDATOR_CONTRACT_ABI,
         )
 
-        self._transition_to_height = validator_definition_range.transition_to_height
+        self._enter_height = validator_definition_range.enter_height
         self._validator_definition_index = validator_definition_index
 
         self._last_fetch_height: Optional[int] = None
@@ -315,7 +303,7 @@ class ContractEpochFetcher:
                 for validator in self._contract.call().getValidators(epoch_start_height)
             ]
             epoch = Epoch(
-                start_height=max(epoch_start_height, self._transition_to_height),
+                start_height=max(epoch_start_height, self._enter_height),
                 validators=validators,
                 validator_definition_index=self._validator_definition_index,
             )
