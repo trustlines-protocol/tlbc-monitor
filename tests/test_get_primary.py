@@ -2,6 +2,7 @@ import pytest
 
 from monitor.validators import (
     validate_validator_definition,
+    validate_validator_definition_order,
     ValidatorDefinitionRange,
     get_validator_definition_ranges,
 )
@@ -114,3 +115,42 @@ def test_get_ranges():
             ],
         ),
     ]
+
+
+def test_validate_valid_range_order():
+    validate_validator_definition_order(
+        [
+            ValidatorDefinitionRange(
+                enter_height=100,
+                leave_height=200,
+                is_contract=True,
+                contract_address=b"\x00" * 20,
+            ),
+            ValidatorDefinitionRange(
+                enter_height=200,
+                leave_height=None,
+                is_contract=True,
+                contract_address=b"\x00" * 20,
+            ),
+        ]
+    )
+
+
+def test_validate_valid_ranges():
+    with pytest.raises(ValueError):
+        validate_validator_definition_order(
+            [
+                ValidatorDefinitionRange(
+                    enter_height=100,
+                    leave_height=200,
+                    is_contract=True,
+                    contract_address=b"\x00" * 20,
+                ),
+                ValidatorDefinitionRange(
+                    enter_height=201,
+                    leave_height=None,
+                    is_contract=True,
+                    contract_address=b"\x00" * 20,
+                ),
+            ]
+        )
