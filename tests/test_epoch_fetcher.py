@@ -71,22 +71,22 @@ def test_get_static_epochs():
 
     ranges = [
         ValidatorDefinitionRange(
-            transition_to_height=0,
-            transition_from_height=5,
+            enter_height=0,
+            leave_height=5,
             is_contract=False,
             contract_address=None,
             validators=[VALIDATOR1],
         ),
         ValidatorDefinitionRange(
-            transition_to_height=5,
-            transition_from_height=10,
+            enter_height=5,
+            leave_height=10,
             is_contract=True,
             contract_address=CONTRACT_ADDRESS,
             validators=None,
         ),
         ValidatorDefinitionRange(
-            transition_to_height=10,
-            transition_from_height=None,
+            enter_height=10,
+            leave_height=None,
             is_contract=False,
             contract_address=None,
             validators=[VALIDATOR2],
@@ -105,9 +105,7 @@ def initialize_scenario(
 
     validator_definition_ranges = []
     contracts = []
-    for transition_to_height, transition_from_height in sliding_window(
-        2, transition_heights + [None]
-    ):
+    for enter_height, leave_height in sliding_window(2, transition_heights + [None]):
         deployment_tx_hash = validator_set_contract.constructor().transact()
         deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash)
         contract = w3.eth.contract(
@@ -117,8 +115,8 @@ def initialize_scenario(
 
         validator_definition_ranges.append(
             ValidatorDefinitionRange(
-                transition_to_height=transition_to_height,
-                transition_from_height=transition_from_height,
+                enter_height=enter_height,
+                leave_height=leave_height,
                 is_contract=True,
                 contract_address=contracts[-1].address,
                 validators=None,
