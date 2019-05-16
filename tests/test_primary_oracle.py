@@ -12,6 +12,7 @@ VALIDATOR4 = b"\x03" * 20
 def test_get_primary_single_epoch():
     primary_oracle = PrimaryOracle()
     primary_oracle.add_epoch(Epoch(0, [VALIDATOR1, VALIDATOR2], 0))
+    primary_oracle.max_height = 9
     for height in range(10):
         for step in range(0, 10, 2):
             assert primary_oracle.get_primary(height=height, step=step) == VALIDATOR1
@@ -23,6 +24,7 @@ def test_get_primary_two_epochs():
     primary_oracle = PrimaryOracle()
     primary_oracle.add_epoch(Epoch(0, [VALIDATOR1, VALIDATOR2], 0))
     primary_oracle.add_epoch(Epoch(5, [VALIDATOR3, VALIDATOR4], 0))
+    primary_oracle.max_height = 9
     for height in range(5):
         for step in range(0, 10, 2):
             assert primary_oracle.get_primary(height=height, step=step) == VALIDATOR1
@@ -37,6 +39,7 @@ def test_get_primary_two_epochs():
 
 def test_get_primary_no_epochs():
     primary_oracle = PrimaryOracle()
+    primary_oracle.max_height = 4
     for height in range(5):
         for step in range(10):
             with pytest.raises(ValueError):
@@ -46,6 +49,7 @@ def test_get_primary_no_epochs():
 def test_get_primary_late_epoch():
     primary_oracle = PrimaryOracle()
     primary_oracle.add_epoch(Epoch(5, [VALIDATOR1], 0))
+    primary_oracle.max_height = 4
     for height in range(5):
         for step in range(10):
             with pytest.raises(ValueError):
@@ -63,6 +67,7 @@ def test_epoch_sorting():
     primary_oracle.add_epoch(Epoch(0, [VALIDATOR1], 0))
     primary_oracle.add_epoch(Epoch(10, [VALIDATOR3], 0))
     primary_oracle.add_epoch(Epoch(5, [VALIDATOR2], 0))
+    primary_oracle.max_height = 14
     for height in range(5):
         assert primary_oracle.get_primary(height=height, step=0) == VALIDATOR1
     for height in range(5, 10):
@@ -75,6 +80,7 @@ def test_add_irrelevant_epoch():
     primary_oracle = PrimaryOracle()
     primary_oracle.add_epoch(Epoch(0, [VALIDATOR1], 1))
     primary_oracle.add_epoch(Epoch(5, [VALIDATOR2], 0))
+    primary_oracle.max_height = 5
     assert primary_oracle.get_primary(height=5, step=0) == VALIDATOR1
 
 
@@ -83,4 +89,13 @@ def test_remove_irrelevant_epoch():
     primary_oracle.add_epoch(Epoch(0, [VALIDATOR1], 0))
     primary_oracle.add_epoch(Epoch(5, [VALIDATOR2], 0))
     primary_oracle.add_epoch(Epoch(2, [VALIDATOR3], 1))
+    primary_oracle.max_height = 5
     assert primary_oracle.get_primary(height=5, step=0) == VALIDATOR3
+
+
+def test_get_too_far_ahead():
+    primary_oracle = PrimaryOracle()
+    primary_oracle.add_epoch(Epoch(0, [VALIDATOR1], 0))
+    primary_oracle.max_height = 5
+    with pytest.raises(ValueError):
+        primary_oracle.get_primary(height=6, step=0)

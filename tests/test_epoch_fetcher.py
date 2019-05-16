@@ -98,13 +98,13 @@ def test_get_static_epochs():
 
 def initialize_scenario(
     validator_set_contract: Contract, transition_heights: Sequence[int] = None
-) -> Tuple[List[ValidatorDefinitionRange], Tuple[Contract, ...]]:
+) -> Tuple[List[ValidatorDefinitionRange], List[Contract]]:
     transition_heights = transition_heights or []
 
     w3 = validator_set_contract.web3
 
     validator_definition_ranges = []
-    contracts = []
+    contracts: List[Contract] = []
     for enter_height, leave_height in sliding_window(2, transition_heights + [None]):
         deployment_tx_hash = validator_set_contract.constructor().transact()
         deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash)
@@ -304,3 +304,19 @@ def test_epoch_fetcher_ignores_stale_contracts(w3, tester, validator_set_contrac
     change_validators(contract1)
     epochs = fetcher.fetch_new_epochs()
     assert epochs == []
+
+
+def test_epoch_fetcher_updates_max_height(w3, tester, validator_set_contract):
+    val_def, (contract,) = initialize_scenario(
+        validator_set_contract, transition_heights=[100]
+    )
+    initialize_validators(contract)
+
+    fetcher = EpochFetcher(w3, val_def)
+    assert fetcher.max_height == 0
+    fetcher.fetch_new_epochs()
+    assert fetcher.max_height == w3.eth.blockNumber
+
+    mine_until(w3, tester, 50)
+    fetcher.fetch_new_epochs()
+    assert fetcher.max_height == 50

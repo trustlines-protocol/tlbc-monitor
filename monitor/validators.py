@@ -2,7 +2,7 @@ import bisect
 from collections.abc import Mapping
 from itertools import chain, takewhile, dropwhile
 import json
-from typing import NamedTuple, List, Dict, Optional
+from typing import cast, NamedTuple, List, Dict, Optional
 import os
 
 from eth_utils import is_hex_address, decode_hex
@@ -152,6 +152,7 @@ class PrimaryOracle:
     def __init__(self) -> None:
         self._epochs: Dict[int, Epoch] = {}
         self._ordered_start_heights: List[int] = []
+        self.max_height = 0
 
     def get_primary(self, *, height: int, step: int):
         validators = self._get_validators(height)
@@ -161,6 +162,10 @@ class PrimaryOracle:
     def _get_validators(self, block_height: int) -> List[bytes]:
         if not self._epochs:
             raise ValueError("No epochs have been added yet")
+        if block_height > self.max_height:
+            raise ValueError(
+                f"Validator sets are only known until height {self.max_height}"
+            )
 
         try:
             epoch_start_height = last(
@@ -329,6 +334,19 @@ class EpochFetcher:
             )
             if validator_definition_range.is_contract
         ]
+
+    @property
+    def max_height(self) -> int:
+        if any(
+            contract_epoch_fetcher.last_fetch_height is None
+            for contract_epoch_fetcher in self._contract_epoch_fetchers
+        ):
+            return 0
+        else:
+            return min(
+                cast(int, contract_epoch_fetcher.last_fetch_height)
+                for contract_epoch_fetcher in self._contract_epoch_fetchers
+            )
 
     def fetch_new_epochs(self) -> List[Epoch]:
         new_epochs: List[Epoch] = []
