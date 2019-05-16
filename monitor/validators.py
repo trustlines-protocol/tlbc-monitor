@@ -2,7 +2,7 @@ import bisect
 from collections.abc import Mapping
 from itertools import chain, takewhile, dropwhile
 import json
-from typing import cast, NamedTuple, List, Dict, Optional
+from typing import cast, NamedTuple, List, Dict, Optional, Sequence
 import os
 
 from eth_utils import is_hex_address, decode_hex
@@ -123,6 +123,14 @@ def get_validator_definition_ranges(validator_definition):
     return result
 
 
+def validate_validator_definition_order(
+    validator_definition_ranges: Sequence[ValidatorDefinitionRange]
+) -> None:
+    for current_range, next_range in sliding_window(2, validator_definition_ranges):
+        if current_range.leave_height != next_range.enter_height:
+            raise ValueError("Missing validator definition range")
+
+
 class Epoch(NamedTuple):
     start_height: int
     validators: List[bytes]
@@ -132,6 +140,7 @@ class Epoch(NamedTuple):
 def get_static_epochs(
     validator_definition_ranges: List[ValidatorDefinitionRange]
 ) -> List[Epoch]:
+    validate_validator_definition_order(validator_definition_ranges)
     epochs = []
 
     for index, validator_definition_range in enumerate(validator_definition_ranges):
@@ -326,6 +335,7 @@ class EpochFetcher:
     def __init__(
         self, w3: Web3, validator_definition_ranges: List[ValidatorDefinitionRange]
     ) -> None:
+        validate_validator_definition_order(validator_definition_ranges)
         self._validator_definition_ranges = validator_definition_ranges
         self._contract_epoch_fetchers = [
             ContractEpochFetcher(w3, validator_definition_range, index)
