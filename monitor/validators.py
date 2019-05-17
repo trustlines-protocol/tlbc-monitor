@@ -353,7 +353,7 @@ class EpochFetcher:
         ]
 
     @property
-    def max_height(self) -> int:
+    def last_fetch_height(self) -> int:
         if any(
             contract_epoch_fetcher.last_fetch_height is None
             for contract_epoch_fetcher in self._contract_epoch_fetchers

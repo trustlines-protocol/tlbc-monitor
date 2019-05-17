@@ -306,17 +306,17 @@ def test_epoch_fetcher_ignores_stale_contracts(w3, tester, validator_set_contrac
     assert epochs == []
 
 
-def test_epoch_fetcher_updates_max_height(w3, tester, validator_set_contract):
+def test_epoch_fetcher_updates_last_fetch_height(w3, tester, validator_set_contract):
     val_def, (contract,) = initialize_scenario(
         validator_set_contract, transition_heights=[100]
     )
     initialize_validators(contract)
 
     fetcher = EpochFetcher(w3, val_def)
-    assert fetcher.max_height == 0
+    assert fetcher.last_fetch_height == 0
     fetcher.fetch_new_epochs()
-    assert fetcher.max_height == w3.eth.blockNumber
+    assert fetcher.last_fetch_height == w3.eth.blockNumber
 
     mine_until(w3, tester, 50)
     fetcher.fetch_new_epochs()
-    assert fetcher.max_height == 50
+    assert fetcher.last_fetch_height == 50
