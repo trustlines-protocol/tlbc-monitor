@@ -138,7 +138,8 @@ class App:
         self._update_epochs()
         with self.db.persistent_session() as session:
             number_of_new_blocks = self.block_fetcher.fetch_and_insert_new_blocks(
-                max_number_of_blocks=500, max_block_height=self.epoch_fetcher.max_height
+                max_number_of_blocks=500,
+                max_block_height=self.epoch_fetcher.last_fetch_height,
             )
             self.db.store_pickled("appstate", self.app_state)
             self.skip_file.flush()
