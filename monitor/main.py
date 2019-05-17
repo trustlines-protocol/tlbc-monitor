@@ -159,7 +159,7 @@ class App:
         new_epochs = self.epoch_fetcher.fetch_new_epochs()
         for epoch in new_epochs:
             self.primary_oracle.add_epoch(epoch)
-        self.primary_oracle.max_height = self.epoch_fetcher.max_height
+        self.primary_oracle.max_height = self.epoch_fetcher.last_fetch_height
 
     def stop(self):
         self.logger.info(
