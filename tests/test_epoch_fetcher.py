@@ -320,3 +320,20 @@ def test_epoch_fetcher_updates_last_fetch_height(w3, tester, validator_set_contr
     mine_until(w3, tester, 50)
     fetcher.fetch_new_epochs()
     assert fetcher.last_fetch_height == 50
+
+
+def test_epoch_fetcher_without_contracts(w3, tester):
+    val_def = [
+        ValidatorDefinitionRange(
+            enter_height=0,
+            leave_height=None,
+            is_contract=False,
+            validators=[get_random_address()],
+            contract_address=None,
+        )
+    ]
+    fetcher = EpochFetcher(w3, val_def)
+
+    mine_until(w3, tester, 50)
+    fetcher.fetch_new_epochs()
+    assert fetcher.last_fetch_height == 50
