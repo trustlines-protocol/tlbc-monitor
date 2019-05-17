@@ -343,6 +343,8 @@ class EpochFetcher:
         self, w3: Web3, validator_definition_ranges: List[ValidatorDefinitionRange]
     ) -> None:
         validate_validator_definition_order(validator_definition_ranges)
+        self._w3 = w3
+        self._last_fetch_height = 0
         self._validator_definition_ranges = validator_definition_ranges
         self._contract_epoch_fetchers = [
             ContractEpochFetcher(w3, validator_definition_range, index)
@@ -354,16 +356,7 @@ class EpochFetcher:
 
     @property
     def last_fetch_height(self) -> int:
-        if any(
-            contract_epoch_fetcher.last_fetch_height is None
-            for contract_epoch_fetcher in self._contract_epoch_fetchers
-        ):
-            return 0
-        else:
-            return min(
-                cast(int, contract_epoch_fetcher.last_fetch_height)
-                for contract_epoch_fetcher in self._contract_epoch_fetchers
-            )
+        return self._last_fetch_height
 
     def fetch_new_epochs(self) -> List[Epoch]:
         new_epochs: List[Epoch] = []
@@ -372,6 +365,7 @@ class EpochFetcher:
             new_epochs += epochs
 
         self._remove_stale_fetchers()
+        self._set_last_fetch_height()
 
         return new_epochs
 
@@ -408,3 +402,17 @@ class EpochFetcher:
                 return self._contract_epoch_fetchers.pop(0)
             else:
                 return None
+
+    def _set_last_fetch_height(self) -> None:
+        if not self._contract_epoch_fetchers:
+            self._last_fetch_height = self._w3.eth.blockNumber
+        elif any(
+            contract_epoch_fetcher.last_fetch_height is None
+            for contract_epoch_fetcher in self._contract_epoch_fetchers
+        ):
+            self._last_fetch_height = 0
+        else:
+            self._last_fetch_height = min(
+                cast(int, contract_epoch_fetcher.last_fetch_height)
+                for contract_epoch_fetcher in self._contract_epoch_fetchers
+            )
