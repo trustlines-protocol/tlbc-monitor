@@ -129,8 +129,8 @@ def initialize_scenario(
 def initialize_validators(contract: Contract) -> List[bytes]:
     validators = [get_random_address() for _ in range(2)]
     tx_hashes = [
-        contract.transact().init(validators),
-        contract.transact().testFinalizeChange(),
+        contract.functions.init(validators).transact(),
+        contract.functions.testFinalizeChange().transact(),
     ]
     for tx_hash in tx_hashes:
         contract.web3.eth.waitForTransactionReceipt(tx_hash)
@@ -146,8 +146,8 @@ def mine_until(w3: Web3, tester: EthereumTester, height: int) -> None:
 def change_validators(contract: Contract) -> Tuple[List[bytes], int]:
     validators = [get_random_address() for _ in range(2)]
     tx_hashes = [
-        contract.transact().testChangeValiatorSet(validators),
-        contract.transact().testFinalizeChange(),
+        contract.functions.testChangeValiatorSet(validators).transact(),
+        contract.functions.testFinalizeChange().transact(),
     ]
     receipts = [
         contract.web3.eth.waitForTransactionReceipt(tx_hash) for tx_hash in tx_hashes
