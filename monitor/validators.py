@@ -299,7 +299,7 @@ class ContractEpochFetcher:
 
     def fetch_new_epochs(self) -> List[Epoch]:
         self._last_fetch_height = self._w3.eth.blockNumber
-        epoch_start_heights = self._contract.call().getEpochStartHeights()
+        epoch_start_heights = self._contract.functions.getEpochStartHeights().call()
 
         # epoch start heights will only be updated in the contract by the finalizeChange function which is called at most once
         # per block
@@ -319,7 +319,9 @@ class ContractEpochFetcher:
         for epoch_start_height in new_epoch_start_heights:
             validators = [
                 decode_hex(validator)
-                for validator in self._contract.call().getValidators(epoch_start_height)
+                for validator in self._contract.functions.getValidators(
+                    epoch_start_height
+                ).call()
             ]
             epoch = Epoch(
                 start_height=max(epoch_start_height, self._enter_height),
