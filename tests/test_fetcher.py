@@ -60,22 +60,22 @@ def test_number_of_fetched_blocks(eth_tester, block_fetcher):
 
 
 # test 4,5, 6, because 5 is forward/backward switch number
-@pytest.mark.parametrize("max_block_number", [4, 5, 6])
-def test_max_blocknumber_of_fetched_blocks(
-    eth_tester, w3, block_fetcher, max_block_number
+@pytest.mark.parametrize("max_block_height", [4, 5, 6])
+def test_max_block_height_of_fetched_blocks(
+    eth_tester, w3, block_fetcher, max_block_height
 ):
     eth_tester.mine_blocks(8)
     assert w3.eth.blockNumber == 8
     assert (
-        block_fetcher.fetch_and_insert_new_blocks(max_block_number=max_block_number)
-        == max_block_number + 1
-    )  # genesis + mined blocks
-    assert block_fetcher.head.number == max_block_number
+        block_fetcher.fetch_and_insert_new_blocks(max_block_height=max_block_height)
+        == max_block_height + 1
+    )
+    assert block_fetcher.head.number == max_block_height
     assert (
-        block_fetcher.fetch_and_insert_new_blocks(max_block_number=max_block_number)
+        block_fetcher.fetch_and_insert_new_blocks(max_block_height=max_block_height)
         == 0
     )
-    assert block_fetcher.head.number == max_block_number
+    assert block_fetcher.head.number == max_block_height
 
 
 def test_fail_to_sync_from_block_number_that_does_not_exist(block_fetcher):

@@ -118,9 +118,9 @@ class BlockFetcher:
         self._insert_branch([block])
 
     def fetch_and_insert_new_blocks(
-        self, *, max_number_of_blocks=5000, max_block_number: int = None
+        self, *, max_number_of_blocks=5000, max_block_height: int = None
     ):
-        """Fetches up to `max_number_of_blocks` blocks and only up to blocknumber `max_block_number` (inclusive)
+        """Fetches up to `max_number_of_blocks` blocks and only up to blocknumber `max_block_height` (inclusive)
         and updates the internal state
             If a full branch is fetched it also inserts the new blocks
             Returns the number of fetched blocks
@@ -136,16 +136,16 @@ class BlockFetcher:
 
         # sync forwards at most up until the forward sync target, but no more than
         # max_number_of_blocks
-        max_forward_block_number = (
+        max_forward_block_height = (
             self.fetch_forward_sync_target()
-            if max_block_number is None
-            else min(self.fetch_forward_sync_target(), max_block_number)
+            if max_block_height is None
+            else min(self.fetch_forward_sync_target(), max_block_height)
         )
         max_forward_sync_blocks = max(0, max_number_of_blocks - number_of_synced_blocks)
 
         number_of_synced_blocks += self._sync_forwards(
             max_number_of_blocks=max_forward_sync_blocks,
-            max_block_number=max_forward_block_number,
+            max_block_height=max_forward_block_height,
         )
 
         # sync backwards until we have synced max_number_of_blocks in total or we are fully synced
@@ -154,7 +154,7 @@ class BlockFetcher:
 
         number_of_synced_blocks += self._sync_backwards(
             max_number_of_blocks=max_backward_sync_blocks,
-            max_block_number=max_block_number,
+            max_block_height=max_block_height,
         )
 
         return number_of_synced_blocks
@@ -163,11 +163,11 @@ class BlockFetcher:
         return max(self.w3.eth.blockNumber - self.max_reorg_depth, 0)
 
     def _sync_forwards(
-        self, *, max_number_of_blocks: int, max_block_number: int
+        self, *, max_number_of_blocks: int, max_block_height: int
     ) -> int:
         block_numbers_to_fetch = range(
             self.head.number + 1,
-            min(self.head.number + 1 + max_number_of_blocks, max_block_number + 1),
+            min(self.head.number + 1 + max_number_of_blocks, max_block_height + 1),
         )
 
         blocks = list(
@@ -184,11 +184,11 @@ class BlockFetcher:
         return len(blocks)
 
     def _sync_backwards(
-        self, *, max_number_of_blocks: int, max_block_number: int = None
+        self, *, max_number_of_blocks: int, max_block_height: int = None
     ) -> int:
         branch_length_before = len(self.current_branch)
         complete = self._fetch_branch(
-            max_number_of_blocks, blocknr_or_hash=max_block_number
+            max_number_of_blocks, blocknr_or_hash=max_block_height
         )
         number_of_fetched_blocks = len(self.current_branch) - branch_length_before
 
