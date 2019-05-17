@@ -134,12 +134,14 @@ class BlockFetcher:
             self._insert_first_block()
             number_of_synced_blocks += 1
 
+        forward_sync_target = self.fetch_forward_sync_target()
+
         # sync forwards at most up until the forward sync target, but no more than
         # max_number_of_blocks
         max_forward_block_height = (
-            self.fetch_forward_sync_target()
+            forward_sync_target
             if max_block_height is None
-            else min(self.fetch_forward_sync_target(), max_block_height)
+            else min(forward_sync_target, max_block_height)
         )
         max_forward_sync_blocks = max(0, max_number_of_blocks - number_of_synced_blocks)
 
@@ -188,7 +190,7 @@ class BlockFetcher:
     ) -> int:
         branch_length_before = len(self.current_branch)
         complete = self._fetch_branch(
-            max_number_of_blocks, blocknr_or_hash=max_block_height
+            max_number_of_blocks, head_block_id=max_block_height
         )
         number_of_fetched_blocks = len(self.current_branch) - branch_length_before
 
@@ -197,11 +199,11 @@ class BlockFetcher:
 
         return number_of_fetched_blocks
 
-    def _get_block(self, blocknr_or_hash):
+    def _get_block(self, block_id):
         """call self.w3.eth.getBlock, but make sure we don't fetch a block
         before the initial block"""
-        block = self.w3.eth.getBlock(blocknr_or_hash)
-        assert block is not None, f"Could not fetch block {blocknr_or_hash}"
+        block = self.w3.eth.getBlock(block_id)
+        assert block is not None, f"Could not fetch block {block_id}"
 
         if block.number < self.initial_blocknr:
             self.logger.error(
@@ -213,19 +215,25 @@ class BlockFetcher:
 
         return block
 
-    def _fetch_branch(self, max_blocks_to_fetch, blocknr_or_hash=None):
-
-        if blocknr_or_hash is None:
-            blocknr_or_hash = "latest"
+    def _fetch_branch(self, max_blocks_to_fetch, head_block_id=None):
+        """
+        Starts or continues to fetch a branch
+        :param max_blocks_to_fetch: Max number of blocks to fetch before return
+        :param head_block_id: head block id of the branch to fetch, defaults to 'latest'
+        :return: True if the full branch was fetched, False if it needs to continue on the next call
+        """
 
         if max_blocks_to_fetch < 0:
-            raise ValueError("Maximum number of blocks to fetch must be positive")
+            raise ValueError("Maximum number of blocks to fetch must not be negative")
         elif max_blocks_to_fetch == 0:
             return False
 
         number_of_fetched_blocks = 0
         if len(self.current_branch) == 0:
-            head = self._get_block(blocknr_or_hash)
+            if head_block_id is None:
+                head_block_id = "latest"
+
+            head = self._get_block(head_block_id)
             if self.db.contains(head.hash):
                 self.logger.info(
                     "no new blocks",
