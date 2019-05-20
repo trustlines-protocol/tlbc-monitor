@@ -1,0 +1,10 @@
+[parity]
+chain = "/home/parity/.local/share/io.parity.ethereum/chain_specification.json"
+auto_update = "none"
+no_download = true
+
+[account]
+password = ["/home/parity/.local/share/io.parity.ethereum/password"]
+
+[mining]
+force_sealing = true
