@@ -48,7 +48,8 @@ class SkipReporter:
     @property
     def state(self):
         return SkipReporterState(
-            latest_step=self.latest_step, open_skipped_proposals=self.open_skipped_proposals
+            latest_step=self.latest_step,
+            open_skipped_proposals=self.open_skipped_proposals,
         )
 
     def register_report_callback(self, callback):
@@ -69,6 +70,7 @@ class SkipReporter:
 
         # report misses
         missed_proposals = self.get_missed_proposals()
+
         reported_proposals = set()
         for proposal in missed_proposals:
             primary = self.primary_oracle.get_primary(
@@ -95,11 +97,17 @@ class SkipReporter:
     def remove_open_skipped_proposals_with_step(self, step):
 
         self.open_skipped_proposals = {
-            proposal for proposal in self.open_skipped_proposals if proposal.step != step
+            proposal
+            for proposal in self.open_skipped_proposals
+            if proposal.step != step
         }
 
     def get_missed_proposals(self):
         grace_period_end = self.latest_step - self.grace_period
-        missed_skips = [skipped_proposal for skipped_proposal in self.open_skipped_proposals if skipped_proposal.step < grace_period_end]
+        missed_skips = [
+            skipped_proposal
+            for skipped_proposal in self.open_skipped_proposals
+            if skipped_proposal.step < grace_period_end
+        ]
         missed_skips = sorted(missed_skips, key=lambda x: x.step)
         return missed_skips

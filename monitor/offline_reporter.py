@@ -52,9 +52,7 @@ class OfflineReporter:
     @staticmethod
     def get_fresh_state():
         return OfflineReporterStateV1(
-            missed_steps=set(),
-            reported_validators=set(),
-            recent_skips_by_validator={},
+            missed_steps=set(), reported_validators=set(), recent_skips_by_validator={}
         )
 
     @property
@@ -78,7 +76,9 @@ class OfflineReporter:
         self.missed_steps.add(step)
         self.recent_skips_by_validator[primary].add(step)
 
-        if self._is_offline(primary, self.recent_skips_by_validator[primary], skipped_proposal):
+        if self._is_offline(
+            primary, self.recent_skips_by_validator[primary], skipped_proposal
+        ):
             self.logger.info(
                 "Detected offline validator", address=encode_hex(primary), step=step
             )
@@ -102,26 +102,38 @@ class OfflineReporter:
 
     def _is_offline(self, validator, recent_skipped_proposals, skipped_proposal):
 
-        assigned_steps = self._get_assigned_steps_in_offline_window(validator, skipped_proposal)
+        if skipped_proposal.step - self.offline_window_size <= 0:
+            # We can only see if a validator is offline after some blocks
+            return False
+
+        assigned_steps = self._get_assigned_steps_in_offline_window(
+            validator, skipped_proposal
+        )
 
         current_step = skipped_proposal.step
         window = range(current_step - self.offline_window_size + 1, current_step + 1)
 
-        missed_steps_in_window = [step for step in recent_skipped_proposals if step in window]
+        missed_steps_in_window = [
+            step for step in recent_skipped_proposals if step in window
+        ]
 
         skip_rate = Fraction(len(missed_steps_in_window), assigned_steps)
         return skip_rate > self.allowed_skip_rate
 
-    def _get_assigned_steps_in_offline_window(self, validator, skipped_proposal: SkippedProposal):
+    def _get_assigned_steps_in_offline_window(
+        self, validator, skipped_proposal: SkippedProposal
+    ):
         current_step = skipped_proposal.step
         block_height_of_step = skipped_proposal.block_height
 
-        window = range(current_step - self.offline_window_size + 1, current_step + 1)
-        reversed_window = reversed(window)
+        window = range(current_step, current_step - self.offline_window_size, -1)
 
         assigned_steps = 0
-        for step in reversed_window:
-            if self.primary_oracle.get_primary(height=block_height_of_step, step=step) == validator:
+        for step in window:
+            if (
+                self.primary_oracle.get_primary(height=block_height_of_step, step=step)
+                == validator
+            ):
                 assigned_steps += 1
             if step not in self.missed_steps:
                 block_height_of_step -= 1
