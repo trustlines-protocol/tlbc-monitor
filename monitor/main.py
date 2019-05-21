@@ -250,11 +250,11 @@ class App:
     #
     # Reporters
     #
-    def skip_logger(self, validator, step, block_height):
-        skip_timestamp = step_number_to_timestamp(step)
+    def skip_logger(self, validator, skipped_proposal):
+        skip_timestamp = step_number_to_timestamp(skipped_proposal.step)
         self.skip_file.write(
             "{},{},{}\n".format(
-                step,
+                skipped_proposal.step,
                 encode_hex(validator),
                 datetime.datetime.utcfromtimestamp(skip_timestamp),
             )
