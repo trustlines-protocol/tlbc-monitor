@@ -74,10 +74,8 @@ class OfflineReporter:
 
         step = skipped_proposal.step
 
+        self._clear_old_steps(step)
         self.missed_steps.add(step)
-        self.missed_steps.discard(step - self.offline_window_size)  # TODO: discard more than this?
-
-        self._clear_old_skips(step)
         self.recent_skips_by_validator[primary].add(step)
 
         if self._is_offline(primary, self.recent_skips_by_validator[primary], skipped_proposal):
@@ -91,8 +89,9 @@ class OfflineReporter:
             for callback in self.report_callbacks:
                 callback(primary, list(sorted(skips)))
 
-    def _clear_old_skips(self, current_step):
+    def _clear_old_steps(self, current_step):
         cutoff = current_step - self.offline_window_size
+        self.missed_steps = set(step for step in self.missed_steps if step >= cutoff)
         self.recent_skips_by_validator = defaultdict(
             set,
             {
