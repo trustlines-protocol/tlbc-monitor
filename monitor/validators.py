@@ -75,13 +75,15 @@ def validate_validator_definition(validator_definition):
 
 class ValidatorDefinitionRange(NamedTuple):
     enter_height: int
-    leave_height: int
+    leave_height: Optional[int]
     is_contract: bool
     contract_address: Optional[bytes] = None
     validators: Optional[List[bytes]] = None
 
 
-def get_validator_definition_ranges(validator_definition):
+def get_validator_definition_ranges(
+    validator_definition: Dict
+) -> Sequence[ValidatorDefinitionRange]:
     validate_validator_definition(validator_definition)
 
     sorted_definition = sorted(
@@ -98,7 +100,7 @@ def get_validator_definition_ranges(validator_definition):
         2, chain(sorted_definition, [[None, None]])
     ):
         [(config_type, config_data)] = range_config.items()
-
+        validators: Optional[List[bytes]] = None
         if config_type == "list":
             is_contract = False
             validators = [
@@ -143,8 +145,8 @@ class Epoch(NamedTuple):
 
 
 def get_static_epochs(
-    validator_definition_ranges: List[ValidatorDefinitionRange]
-) -> List[Epoch]:
+    validator_definition_ranges: Sequence[ValidatorDefinitionRange]
+) -> Sequence[Epoch]:
     validate_validator_definition_order(validator_definition_ranges)
     epochs = []
 
@@ -173,7 +175,7 @@ class PrimaryOracle:
         index = step % len(validators)
         return validators[index]
 
-    def _get_validators(self, block_height: int) -> List[bytes]:
+    def _get_validators(self, block_height: int) -> Sequence[bytes]:
         if not self._epochs:
             raise ValueError("No epochs have been added yet")
         if block_height > self.max_height:
@@ -297,7 +299,7 @@ class ContractEpochFetcher:
     def last_fetch_height(self) -> Optional[int]:
         return self._last_fetch_height
 
-    def fetch_new_epochs(self) -> List[Epoch]:
+    def fetch_new_epochs(self) -> Sequence[Epoch]:
         self._last_fetch_height = self._w3.eth.blockNumber
         epoch_start_heights = self._contract.functions.getEpochStartHeights().call()
 
@@ -340,7 +342,7 @@ class ContractEpochFetcher:
 
 class EpochFetcher:
     def __init__(
-        self, w3: Web3, validator_definition_ranges: List[ValidatorDefinitionRange]
+        self, w3: Web3, validator_definition_ranges: Sequence[ValidatorDefinitionRange]
     ) -> None:
         validate_validator_definition_order(validator_definition_ranges)
         self._w3 = w3
@@ -358,7 +360,7 @@ class EpochFetcher:
     def last_fetch_height(self) -> int:
         return self._last_fetch_height
 
-    def fetch_new_epochs(self) -> List[Epoch]:
+    def fetch_new_epochs(self) -> Sequence[Epoch]:
         new_epochs: List[Epoch] = []
         for fetcher in self._contract_epoch_fetchers:
             epochs = fetcher.fetch_new_epochs()

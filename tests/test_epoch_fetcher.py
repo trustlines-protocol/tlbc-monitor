@@ -1,6 +1,6 @@
 import json
 import random
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Union
 import os
 
 import pytest
@@ -99,13 +99,15 @@ def test_get_static_epochs():
 def initialize_scenario(
     validator_set_contract: Contract, transition_heights: Sequence[int] = None
 ) -> Tuple[List[ValidatorDefinitionRange], List[Contract]]:
-    transition_heights = transition_heights or []
+    _transition_heights: List[Union[int, None]] = list(
+        transition_heights
+    ) if transition_heights is not None else []
 
     w3 = validator_set_contract.web3
 
     validator_definition_ranges = []
     contracts: List[Contract] = []
-    for enter_height, leave_height in sliding_window(2, transition_heights + [None]):
+    for enter_height, leave_height in sliding_window(2, _transition_heights + [None]):
         deployment_tx_hash = validator_set_contract.constructor().transact()
         deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash)
         contract = w3.eth.contract(
