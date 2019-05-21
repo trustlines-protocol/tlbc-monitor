@@ -56,7 +56,7 @@ class SkipReporter:
 
     def __call__(self, block):
         block_step = int(block.step)
-        block_height = int(block.height)
+        block_height = int(block.number)
 
         # don't report skips between genesis and the first block as genesis always has step 0
         if self.latest_step is None:
@@ -65,7 +65,6 @@ class SkipReporter:
             return
 
         self.update_open_skipped_proposals(block_step, block_height)
-
         self.remove_open_skipped_proposals_with_step(block_step)
 
         # report misses
@@ -79,25 +78,25 @@ class SkipReporter:
                 "detected missed step", primary=encode_hex(primary), step=proposal.step
             )
             for callback in self.report_callbacks:
-                callback(primary, proposal.step, block_height)
+                callback(primary, proposal)
 
             reported_proposals.add(proposal)
 
         # remove misses from open steps as they have been reported already
         self.open_skipped_proposals -= set(reported_proposals)
 
+    def update_open_skipped_proposals(self, current_step, latest_block_height):
+        if current_step > self.latest_step:
+            for step in range(self.latest_step + 1, current_step):
+                skipped_proposal = SkippedProposal(current_step, latest_block_height)
+                self.open_skipped_proposals.add(skipped_proposal)
+            self.latest_step = current_step
+
     def remove_open_skipped_proposals_with_step(self, step):
 
         self.open_skipped_proposals = {
             proposal for proposal in self.open_skipped_proposals if proposal.step != step
         }
-
-    def update_open_skipped_proposals(self, current_step, latest_block_height):
-        if current_step > self.latest_step:
-            for step in range(self.latest_step + 1, current_step + 1):
-                skipped_proposal = SkippedProposal(current_step, latest_block_height)
-                self.open_skipped_proposals.add(skipped_proposal)
-            self.latest_step = current_step
 
     def get_missed_proposals(self):
         grace_period_end = self.latest_step - self.grace_period
