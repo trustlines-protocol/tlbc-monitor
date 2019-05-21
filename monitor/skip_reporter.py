@@ -88,7 +88,7 @@ class SkipReporter:
     def update_open_skipped_proposals(self, current_step, latest_block_height):
         if current_step > self.latest_step:
             for step in range(self.latest_step + 1, current_step):
-                skipped_proposal = SkippedProposal(current_step, latest_block_height)
+                skipped_proposal = SkippedProposal(step, latest_block_height)
                 self.open_skipped_proposals.add(skipped_proposal)
             self.latest_step = current_step
 
