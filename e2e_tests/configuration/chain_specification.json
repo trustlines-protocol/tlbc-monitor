@@ -5,7 +5,11 @@
 			"params": {
 				"stepDuration": 1,
 				"validators": {
-					"contract": "9cce34f7ab185c7aba1b7c8140d620b4bda941d7"
+					"multi": {
+						"0": {
+							"contract": "9cce34f7ab185c7aba1b7c8140d620b4bda941d7"
+						}
+					}
 				}
 			}
 		}
