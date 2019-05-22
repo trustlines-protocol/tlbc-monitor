@@ -1,0 +1,3 @@
+FROM parity/parity
+
+COPY --chown=parity ./configuration/* /home/parity/.local/share/io.parity.ethereum/

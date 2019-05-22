@@ -47,5 +47,6 @@ RUN apt-get update \
 FROM runner
 COPY --from=builder /opt/tlbc-monitor /opt/tlbc-monitor
 WORKDIR /opt/tlbc-monitor
+RUN mkdir reports state
 
 ENTRYPOINT ["tlbc-monitor"]

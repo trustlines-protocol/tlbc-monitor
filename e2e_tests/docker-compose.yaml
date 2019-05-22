@@ -1,0 +1,34 @@
+version: '3.7'
+services:
+  validator_one:
+    container_name: validator_one
+    build:
+      context: .
+      dockerfile: Dockerfile_parity
+    volumes:
+      - ./validator_one/keys:/home/parity/.local/share/io.parity.ethereum/keys
+      - ./validator_one/network:/home/parity/.local/share/io.parity.ethereum/network
+    command: >
+      --engine-signer 0x46ae357ba2f459cb04697837397ec90b47e48727
+      --jsonrpc-interface all
+
+  validator_two:
+    container_name: validator_two
+    build:
+      context: .
+      dockerfile: Dockerfile_parity
+    volumes:
+      - ./validator_two/keys:/home/parity/.local/share/io.parity.ethereum/keys
+      - ./validator_two/network:/home/parity/.local/share/io.parity.ethereum/network
+    command: --engine-signer 0x260ea46e50c7111f08f7e8c863235ebcf29bb1a1
+
+  monitor:
+    build: ..
+    depends_on:
+      - validator_one
+      - validator_two
+    volumes:
+      - ./configuration:/config
+    command: >
+      --rpc-uri http://validator_one:8545
+      --chain-spec-path /config/chain_specification.json
