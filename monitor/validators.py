@@ -171,11 +171,11 @@ class PrimaryOracle:
         self.max_height = 0
 
     def get_primary(self, *, height: int, step: int):
-        validators = self._get_validators(height)
+        validators = self.get_validators(height)
         index = step % len(validators)
         return validators[index]
 
-    def _get_validators(self, block_height: int) -> Sequence[bytes]:
+    def get_validators(self, block_height: int) -> List[bytes]:
         if not self._epochs:
             raise ValueError("No epochs have been added yet")
         if block_height > self.max_height:
@@ -299,7 +299,7 @@ class ContractEpochFetcher:
     def last_fetch_height(self) -> Optional[int]:
         return self._last_fetch_height
 
-    def fetch_new_epochs(self) -> Sequence[Epoch]:
+    def fetch_new_epochs(self) -> List[Epoch]:
         self._last_fetch_height = self._w3.eth.blockNumber
         epoch_start_heights = self._contract.functions.getEpochStartHeights().call()
 
@@ -360,7 +360,7 @@ class EpochFetcher:
     def last_fetch_height(self) -> int:
         return self._last_fetch_height
 
-    def fetch_new_epochs(self) -> Sequence[Epoch]:
+    def fetch_new_epochs(self) -> List[Epoch]:
         new_epochs: List[Epoch] = []
         for fetcher in self._contract_epoch_fetchers:
             epochs = fetcher.fetch_new_epochs()
