@@ -113,3 +113,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# e2e tests
+e2e_tests/validator_*/keys/e2e_test_chain/address_book.json
