@@ -36,10 +36,10 @@ def test_report_entirely_offline_validator(validators, offline_reporter):
     offline_reporter.register_report_callback(report_callback)
 
     offline_validator = validators[0]
-    for i, step in enumerate((12, 15, 18, 21)):
+    for i, step in enumerate((0, 3, 6, 9)):
         offline_reporter(offline_validator, SkippedProposal(step, step - i))
 
-    report_callback.assert_called_once_with(offline_validator, [12, 15, 18, 21])
+    report_callback.assert_called_once_with(offline_validator, [0, 3, 6, 9])
 
 
 def test_barely_offline_validator(validators, offline_reporter):

@@ -1,6 +1,6 @@
+from bisect import bisect_right
 from collections import defaultdict
-from fractions import Fraction
-from typing import Any, NamedTuple, List, Callable
+from typing import Any, NamedTuple, List, Callable, Set, Sequence, Dict
 
 import structlog
 
@@ -10,10 +10,20 @@ from monitor.validators import PrimaryOracle
 from monitor.skip_reporter import SkippedProposal
 
 
+class OfflineStep(NamedTuple):
+    step: int
+
+    # length of the offline interval,
+    # so length is the number of current validators
+    length: int
+
+
 class OfflineReporterStateV1(NamedTuple):
-    missed_steps: Any
-    reported_validators: Any
-    recent_skips_by_validator: Any
+    reported_validators: Set[bytes]
+    recent_skips_by_validator: Dict[bytes, List[OfflineStep]]
+
+    # offline time in number of steps
+    offline_time_by_validator: Dict[bytes, int]
 
 
 class OfflineReporter:
@@ -37,10 +47,12 @@ class OfflineReporter:
         self.offline_window_size = offline_window_size
         self.allowed_skip_rate = allowed_skip_rate
 
-        self.missed_steps = state.missed_steps
         self.reported_validators = state.reported_validators
-        self.recent_skips_by_validator = defaultdict(
-            set, state.recent_skips_by_validator
+        self.recent_offline_steps_by_validator = defaultdict(
+            list, state.recent_skips_by_validator
+        )
+        self.offline_time_by_validator = defaultdict(
+            int, state.offline_time_by_validator
         )
 
         self.report_callbacks: List[Callable[[bytes, List[int]], Any]] = []
@@ -52,15 +64,17 @@ class OfflineReporter:
     @staticmethod
     def get_fresh_state():
         return OfflineReporterStateV1(
-            missed_steps=set(), reported_validators=set(), recent_skips_by_validator={}
+            reported_validators=set(),
+            recent_skips_by_validator={},
+            offline_time_by_validator={},
         )
 
     @property
     def state(self):
         return OfflineReporterStateV1(
-            missed_steps=self.missed_steps,
             reported_validators=self.reported_validators,
-            recent_skips_by_validator=dict(self.recent_skips_by_validator),
+            recent_skips_by_validator=dict(self.recent_offline_steps_by_validator),
+            offline_time_by_validator=self.offline_time_by_validator,
         )
 
     def register_report_callback(self, callback):
@@ -73,69 +87,56 @@ class OfflineReporter:
         step = skipped_proposal.step
 
         self._clear_old_steps(step)
-        self.missed_steps.add(step)
-        self.recent_skips_by_validator[primary].add(step)
+        self._update_skips(primary, skipped_proposal)
 
-        if self._is_offline(
-            primary, self.recent_skips_by_validator[primary], skipped_proposal
-        ):
+        if self._is_offline(self.recent_offline_steps_by_validator[primary]):
             self.logger.info(
                 "Detected offline validator", address=encode_hex(primary), step=step
             )
 
             self.reported_validators.add(primary)
-            skips = self.recent_skips_by_validator.pop(primary)
+            offline_steps = self.recent_offline_steps_by_validator.pop(primary)
 
             for callback in self.report_callbacks:
-                callback(primary, list(sorted(skips)))
+                callback(
+                    primary,
+                    list(sorted(offline_step.step for offline_step in offline_steps)),
+                )
+
+    def _update_skips(self, validator: bytes, skipped_proposal: SkippedProposal):
+        # It is important that they are ordered
+        if self.recent_offline_steps_by_validator[validator]:
+            assert (
+                skipped_proposal.step
+                > self.recent_offline_steps_by_validator[validator][-1].step
+            )
+        length = len(self.primary_oracle.get_validators(skipped_proposal.block_height))
+
+        self.recent_offline_steps_by_validator[validator].append(
+            OfflineStep(skipped_proposal.step, length=length)
+        )
+        self.offline_time_by_validator[validator] += length
 
     def _clear_old_steps(self, current_step):
         cutoff = current_step - self.offline_window_size
-        self.missed_steps = set(step for step in self.missed_steps if step >= cutoff)
-        self.recent_skips_by_validator = defaultdict(
-            set,
-            {
-                validator: {step for step in skips if step >= cutoff}
-                for validator, skips in self.recent_skips_by_validator.items()
-            },
-        )
+        cleared_offline_steps_by_validator = defaultdict(list)
 
-    def _is_offline(self, validator, recent_skipped_proposals, skipped_proposal):
+        for validator, offline_steps in self.recent_offline_steps_by_validator.items():
+            # OfflineStep(cutoff, 0) is used because bisect does not support a key
+            index = bisect_right(offline_steps, OfflineStep(cutoff, 0))
+            cleared_offline_steps_by_validator[validator] = offline_steps[index:]
 
-        if skipped_proposal.step - self.offline_window_size <= 0:
-            # We can only see if a validator is offline after some blocks
-            return False
+            for offline_step in offline_steps[:index]:
+                self.offline_time_by_validator[validator] -= offline_step.length
 
-        assigned_steps = self._get_assigned_steps_in_offline_window(
-            validator, skipped_proposal
-        )
+        self.recent_offline_steps_by_validator = cleared_offline_steps_by_validator
 
-        current_step = skipped_proposal.step
-        window = range(current_step - self.offline_window_size + 1, current_step + 1)
+    def _is_offline(self, recent_offline_steps: Sequence[OfflineStep]):
 
-        missed_steps_in_window = [
-            step for step in recent_skipped_proposals if step in window
-        ]
+        offline_length = 0
+        for offline_step in recent_offline_steps:
+            offline_length += offline_step.length
 
-        skip_rate = Fraction(len(missed_steps_in_window), assigned_steps)
+        skip_rate = offline_length / self.offline_window_size
+
         return skip_rate > self.allowed_skip_rate
-
-    def _get_assigned_steps_in_offline_window(
-        self, validator, skipped_proposal: SkippedProposal
-    ):
-        current_step = skipped_proposal.step
-        block_height_of_step = skipped_proposal.block_height
-
-        window = range(current_step, current_step - self.offline_window_size, -1)
-
-        assigned_steps = 0
-        for step in window:
-            if (
-                self.primary_oracle.get_primary(height=block_height_of_step, step=step)
-                == validator
-            ):
-                assigned_steps += 1
-            if step not in self.missed_steps:
-                block_height_of_step -= 1
-
-        return assigned_steps
