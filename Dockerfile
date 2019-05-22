@@ -42,11 +42,11 @@ ENV LANG C.UTF-8
 RUN apt-get update \
     && apt-get install -y apt-utils python3 \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -s /opt/tlbc-monitor/bin/tlbc-monitor /usr/local/bin/
+    && ln -s /opt/tlbc-monitor/bin/tlbc-monitor /usr/local/bin/ \
+    && mkdir -p /opt/tlbc-monitor/reports
 
 FROM runner
 COPY --from=builder /opt/tlbc-monitor /opt/tlbc-monitor
 WORKDIR /opt/tlbc-monitor
-RUN mkdir reports state
 
 ENTRYPOINT ["tlbc-monitor"]
