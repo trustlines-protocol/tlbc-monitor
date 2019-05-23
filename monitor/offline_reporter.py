@@ -1,6 +1,6 @@
 from bisect import bisect_right
 from collections import defaultdict
-from typing import Any, NamedTuple, List, Callable, Set, Sequence, Dict
+from typing import Any, NamedTuple, List, Callable, Set, Dict, DefaultDict
 
 import structlog
 
@@ -10,7 +10,7 @@ from monitor.validators import PrimaryOracle
 from monitor.skip_reporter import SkippedProposal
 
 
-class OfflineStep(NamedTuple):
+class OfflineInterval(NamedTuple):
     step: int
 
     # length of the offline interval,
@@ -20,7 +20,7 @@ class OfflineStep(NamedTuple):
 
 class OfflineReporterStateV1(NamedTuple):
     reported_validators: Set[bytes]
-    recent_skips_by_validator: Dict[bytes, List[OfflineStep]]
+    recent_offline_intervals_by_validator: Dict[bytes, List[OfflineInterval]]
 
     # offline time in number of steps
     offline_time_by_validator: Dict[bytes, int]
@@ -30,7 +30,7 @@ class OfflineReporter:
     """Report when validators are offline.
 
     The reporter expects to be notified whenever a validator has failed to propose during a step
-    they were the primary of by calling it with the primary address and step number.
+    they were the primary of by calling it with the primary address and the skipped proposal.
     """
 
     logger = structlog.get_logger("monitor.offline_reporter")
@@ -48,8 +48,8 @@ class OfflineReporter:
         self.allowed_skip_rate = allowed_skip_rate
 
         self.reported_validators = state.reported_validators
-        self.recent_offline_steps_by_validator = defaultdict(
-            list, state.recent_skips_by_validator
+        self.recent_offline_intervals_by_validator = defaultdict(
+            list, state.recent_offline_intervals_by_validator
         )
         self.offline_time_by_validator = defaultdict(
             int, state.offline_time_by_validator
@@ -65,7 +65,7 @@ class OfflineReporter:
     def get_fresh_state():
         return OfflineReporterStateV1(
             reported_validators=set(),
-            recent_skips_by_validator={},
+            recent_offline_intervals_by_validator={},
             offline_time_by_validator={},
         )
 
@@ -73,7 +73,9 @@ class OfflineReporter:
     def state(self):
         return OfflineReporterStateV1(
             reported_validators=self.reported_validators,
-            recent_skips_by_validator=dict(self.recent_offline_steps_by_validator),
+            recent_offline_intervals_by_validator=dict(
+                self.recent_offline_intervals_by_validator
+            ),
             offline_time_by_validator=self.offline_time_by_validator,
         )
 
@@ -86,16 +88,16 @@ class OfflineReporter:
 
         step = skipped_proposal.step
 
-        self._clear_old_steps(step)
-        self._update_skips(primary, skipped_proposal)
+        self._clear_outdated_offline_intervals(step)
+        self._update_offline_intervals(primary, skipped_proposal)
 
-        if self._is_offline(self.recent_offline_steps_by_validator[primary]):
+        if self._is_offline(primary):
             self.logger.info(
                 "Detected offline validator", address=encode_hex(primary), step=step
             )
 
             self.reported_validators.add(primary)
-            offline_steps = self.recent_offline_steps_by_validator.pop(primary)
+            offline_steps = self.recent_offline_intervals_by_validator.pop(primary)
 
             for callback in self.report_callbacks:
                 callback(
@@ -103,40 +105,41 @@ class OfflineReporter:
                     list(sorted(offline_step.step for offline_step in offline_steps)),
                 )
 
-    def _update_skips(self, validator: bytes, skipped_proposal: SkippedProposal):
+    def _update_offline_intervals(
+        self, validator: bytes, skipped_proposal: SkippedProposal
+    ) -> None:
         # It is important that they are ordered
-        if self.recent_offline_steps_by_validator[validator]:
+        if self.recent_offline_intervals_by_validator[validator]:
             assert (
                 skipped_proposal.step
-                > self.recent_offline_steps_by_validator[validator][-1].step
+                > self.recent_offline_intervals_by_validator[validator][-1].step
             )
         length = len(self.primary_oracle.get_validators(skipped_proposal.block_height))
 
-        self.recent_offline_steps_by_validator[validator].append(
-            OfflineStep(skipped_proposal.step, length=length)
+        self.recent_offline_intervals_by_validator[validator].append(
+            OfflineInterval(skipped_proposal.step, length=length)
         )
         self.offline_time_by_validator[validator] += length
 
-    def _clear_old_steps(self, current_step):
+    def _clear_outdated_offline_intervals(self, current_step) -> None:
         cutoff = current_step - self.offline_window_size
-        cleared_offline_steps_by_validator = defaultdict(list)
+        cleared_offline_steps_by_validator: DefaultDict[
+            bytes, List[OfflineInterval]
+        ] = defaultdict(list)
 
-        for validator, offline_steps in self.recent_offline_steps_by_validator.items():
+        for (
+            validator,
+            offline_steps,
+        ) in self.recent_offline_intervals_by_validator.items():
             # OfflineStep(cutoff, 0) is used because bisect does not support a key
-            index = bisect_right(offline_steps, OfflineStep(cutoff, 0))
+            index = bisect_right(offline_steps, OfflineInterval(cutoff, 0))
             cleared_offline_steps_by_validator[validator] = offline_steps[index:]
 
             for offline_step in offline_steps[:index]:
                 self.offline_time_by_validator[validator] -= offline_step.length
 
-        self.recent_offline_steps_by_validator = cleared_offline_steps_by_validator
+        self.recent_offline_intervals_by_validator = cleared_offline_steps_by_validator
 
-    def _is_offline(self, recent_offline_steps: Sequence[OfflineStep]):
-
-        offline_length = 0
-        for offline_step in recent_offline_steps:
-            offline_length += offline_step.length
-
-        skip_rate = offline_length / self.offline_window_size
-
+    def _is_offline(self, validator: bytes) -> bool:
+        skip_rate = self.offline_time_by_validator[validator] / self.offline_window_size
         return skip_rate > self.allowed_skip_rate
