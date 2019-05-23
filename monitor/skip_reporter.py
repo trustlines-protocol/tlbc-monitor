@@ -87,12 +87,12 @@ class SkipReporter:
         # remove misses from open steps as they have been reported already
         self.open_skipped_proposals -= set(reported_proposals)
 
-    def update_open_skipped_proposals(self, current_step, latest_block_height):
-        if current_step > self.latest_step:
-            for step in range(self.latest_step + 1, current_step):
-                skipped_proposal = SkippedProposal(step, latest_block_height)
+    def update_open_skipped_proposals(self, step_seen, block_height_seen):
+        if step_seen > self.latest_step:
+            for step in range(self.latest_step + 1, step_seen):
+                skipped_proposal = SkippedProposal(step, block_height_seen)
                 self.open_skipped_proposals.add(skipped_proposal)
-            self.latest_step = current_step
+            self.latest_step = step_seen
 
     def remove_open_skipped_proposals_with_step(self, step):
 
