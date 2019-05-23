@@ -7,15 +7,13 @@ def test_skip_report_file_gets_created(skip_report_file):
 
 
 def test_correct_address_gets_reported_to_skip(
-    skip_report_file, offline_validator_address
+    skip_report_list, offline_validator_address
 ):
-    with open(skip_report_file) as file:
-        first_skip_report_entry = file.readline()
+    assert skip_report_list, "No validator has been reported to have skipped!"
 
-    assert first_skip_report_entry, "No validator has been reported to have skip!"
-
-    pattern = f"[0-9]+,{offline_validator_address},[0-9,-]+"
-
-    assert re.match(
-        pattern, first_skip_report_entry
-    ), "The first skip report entry does not report correct address of offline validator!"
+    for skip_report_entry in skip_report_list:
+        reported_addresses_findings = re.findall(
+            "[0-9]+,(0x[0-9,a-f]+?),[0-9,-]+", skip_report_entry
+        )
+        assert len(reported_addresses_findings) == 1
+        assert reported_addresses_findings[0] == offline_validator_address

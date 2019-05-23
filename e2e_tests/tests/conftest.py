@@ -1,6 +1,6 @@
 import pytest
 import os
-import re
+import glob
 
 
 @pytest.fixture(scope="session")
@@ -10,9 +10,10 @@ def offline_validator_address():
 
 @pytest.fixture(scope="session")
 def report_directory():
-    base_directory = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), os.pardir
+    base_directory = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), os.pardir)
     )
+
     return os.path.join(base_directory, "reports")
 
 
@@ -22,19 +23,13 @@ def skip_report_file(report_directory):
 
 
 @pytest.fixture(scope="session")
-def offline_report_file(report_directory, offline_validator_address):
-    # TODO: encounter a more elegant way to handle the unknown step without need
-    # to throw here
-    for file_name in os.listdir(report_directory):
-        print(file_name)
-        if re.match(
-            f"offline_report_{offline_validator_address}_steps_[0-9]+_to_[0-9]+",
-            file_name,
-        ):
-            offline_report_file_name = file_name
-            break
+def skip_report_list(skip_report_file):
+    with open(skip_report_file) as file:
+        return file.readlines()
 
-    else:
-        assert False, "Could not find offline report file for offline validator!"
 
-    return os.path.join(report_directory, offline_report_file_name)
+@pytest.fixture(scope="session")
+def offline_report_files(report_directory, offline_validator_address):
+    file_name_pattern = f"offline_report_{offline_validator_address}_steps_*"
+    file_path_pattern = os.path.join(report_directory, file_name_pattern)
+    return glob.glob(file_path_pattern)
