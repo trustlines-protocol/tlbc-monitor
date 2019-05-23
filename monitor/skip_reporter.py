@@ -62,7 +62,7 @@ class SkipReporter:
         # don't report skips between genesis and the first block as genesis always has step 0
         if self.latest_step is None:
             self.latest_step = block_step
-            self.logger.info("received first block", step=self.latest_step)
+            self.logger.debug("received first block", step=self.latest_step)
             return
 
         self.update_open_skipped_proposals(block_step, block_height)
