@@ -44,6 +44,9 @@ class BlockFetcher:
         self.initial_block_resolver = initial_block_resolver
         self.initial_blocknr = state.initial_blocknr
 
+        self._start_sync_number = 0
+        self.syncing = False
+
     @classmethod
     def from_fresh_state(cls, *args, **kwargs):
         return cls(cls.get_fresh_state(), *args, **kwargs)
@@ -133,6 +136,8 @@ class BlockFetcher:
         if self.db.is_empty():
             self._insert_first_block()
             number_of_synced_blocks += 1
+
+        self._save_sync_start()
 
         forward_sync_target = self.fetch_forward_sync_target()
 
@@ -235,7 +240,7 @@ class BlockFetcher:
 
             head = self._get_block(head_block_id)
             if self.db.contains(head.hash):
-                self.logger.info(
+                self.logger.debug(
                     "no new blocks",
                     head_hash=self.head.hash,
                     head_number=self.head.number,
@@ -256,10 +261,27 @@ class BlockFetcher:
         complete = self.db.contains(self.current_branch[-1].parentHash)
         return complete
 
-    def get_sync_status_percentage(self):
+    def get_sync_status(self):
         last_block_number = self.w3.eth.blockNumber
         head_block_number = self.head_block_number
-        return head_block_number / last_block_number * 100
+        if last_block_number <= self._start_sync_number:
+            return 0
+        # limit it to not go over 100 %
+        branch_correction = min(
+            len(self.current_branch), last_block_number - head_block_number
+        )
+        return (head_block_number - self._start_sync_number + branch_correction) / (
+            last_block_number - self._start_sync_number
+        )
+
+    def _save_sync_start(self):
+        # To show sync status, remember start sync block
+        if not self.syncing and self.head.number < self.w3.eth.blockNumber - 5:
+            self._start_sync_number = self.head.number
+            self.syncing = True
+
+        if self.syncing and self.head.number >= self.w3.eth.blockNumber - 1:
+            self.syncing = False
 
     @property
     def head_block_number(self):

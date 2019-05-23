@@ -4,6 +4,7 @@ from pathlib import Path
 import signal
 import time
 import pkg_resources
+import logging
 
 from typing import Any, NamedTuple
 
@@ -76,6 +77,9 @@ Signature of block header two:
 
 """
 
+logging.basicConfig(level=logging.INFO)
+structlog.configure(logger_factory=structlog.stdlib.LoggerFactory())
+
 
 def step_number_to_timestamp(step):
     return step * STEP_DURATION
@@ -146,10 +150,11 @@ class App:
             session.commit()
 
         self.logger.info(
-            f"Syncing ({(int(self.block_fetcher.get_sync_status_percentage()))}%) "
-            f"{format_block(self.block_fetcher.head)}",
-            head_hash=self.block_fetcher.head.hash,
-            head_number=self.block_fetcher.head.number,
+            f"Syncing ({self.block_fetcher.get_sync_status():.0%})"
+            if self.block_fetcher.syncing
+            else "Synced",
+            head=format_block(self.block_fetcher.head),
+            head_hash=self.block_fetcher.head.hash.hex(),
         )
 
         if number_of_new_blocks == 0:
