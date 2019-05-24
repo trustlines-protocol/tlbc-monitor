@@ -59,7 +59,11 @@ class SkipReporter:
         block_step = int(block.step)
         block_height = int(block.number)
 
-        # don't report skips between genesis and the first block as genesis always has step 0
+        if block_height == 0:
+            # We don't want to report skips between genesis and the first block as genesis always has step 0
+            # so we ignore the genesis block
+            return
+
         if self.latest_step is None:
             self.latest_step = block_step
             self.logger.debug("received first block", step=self.latest_step)

@@ -68,13 +68,6 @@ class BlockFetcher:
 
     def _run_callbacks(self, blocks):
         for block in blocks:
-            # XXX block_fetcher currently does no callbacks for the first block
-            # see https://github.com/trustlines-network/tlbc-monitor/issues/12
-            # we reproduce that bug here on purpose for the moment (i.e. too
-            # lazy to fix the tests)
-            if block.number == 0:
-                continue
-
             for callback in self.report_callbacks:
                 callback(block)
 
