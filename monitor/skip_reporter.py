@@ -1,4 +1,4 @@
-from typing import Any, NamedTuple, List, Callable
+from typing import Any, NamedTuple, List, Callable, Set
 
 import structlog
 
@@ -8,8 +8,18 @@ from monitor.validators import PrimaryOracle
 
 
 class SkipReporterState(NamedTuple):
-    latest_step: Any
-    open_skipped_proposals: Any
+    latest_step: int
+    open_steps: Set[int]
+
+
+class SkipReporterStateV2(NamedTuple):
+    latest_step: int
+    open_skipped_proposals: Set["SkippedProposal"]
+
+
+def upgradeV1toV2(v1: SkipReporterState):
+    # As we can not recover the block height, we will just clear the proposels
+    return SkipReporterStateV2(latest_step=v1.latest_step, open_skipped_proposals=set())
 
 
 class SkippedProposal(NamedTuple):
@@ -34,7 +44,6 @@ class SkipReporter:
 
         self.latest_step = state.latest_step
         self.open_skipped_proposals = state.open_skipped_proposals
-
         self.report_callbacks: List[Callable[[bytes, int], Any]] = []
 
     @classmethod
@@ -43,11 +52,11 @@ class SkipReporter:
 
     @staticmethod
     def get_fresh_state():
-        return SkipReporterState(latest_step=None, open_skipped_proposals=set())
+        return SkipReporterStateV2(latest_step=0, open_skipped_proposals=set())
 
     @property
     def state(self):
-        return SkipReporterState(
+        return SkipReporterStateV2(
             latest_step=self.latest_step,
             open_skipped_proposals=self.open_skipped_proposals,
         )
@@ -64,7 +73,7 @@ class SkipReporter:
             # so we ignore the genesis block
             return
 
-        if self.latest_step is None:
+        if self.latest_step is 0:
             self.latest_step = block_step
             self.logger.debug("received first block", step=self.latest_step)
             return

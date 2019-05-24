@@ -6,7 +6,7 @@ import time
 import pkg_resources
 import logging
 
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 import structlog
 
@@ -16,11 +16,18 @@ from web3 import Web3, HTTPProvider
 from eth_utils import encode_hex
 from eth_keys import keys
 
+import monitor.db as db
 from monitor import blocksel
 from monitor.db import BlockDB
-from monitor.block_fetcher import BlockFetcher, format_block
-from monitor.offline_reporter import OfflineReporter
-from monitor.skip_reporter import SkipReporter
+from monitor.block_fetcher import BlockFetcher, format_block, BlockFetcherStateV1
+from monitor import offline_reporter
+from monitor.offline_reporter import (
+    OfflineReporter,
+    OfflineReporterStateV2,
+    OfflineReporterStateV1,
+)
+from monitor import skip_reporter
+from monitor.skip_reporter import SkipReporter, SkipReporterStateV2, SkipReporterState
 from monitor.equivocation_reporter import EquivocationReporter
 from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
 from monitor.validators import (
@@ -39,6 +46,7 @@ default_db_dir = str(Path.cwd() / "state")
 SKIP_FILE_NAME = "skips"
 DB_FILE_NAME = "tlbc-monitor.db"
 SQLITE_URL_FORMAT = "sqlite:////{path}"
+APP_STATE_KEY = "appstate"
 
 
 STEP_DURATION = 5
@@ -86,9 +94,29 @@ def step_number_to_timestamp(step):
 
 
 class AppStateV1(NamedTuple):
-    block_fetcher_state: Any
-    skip_reporter_state: Any
-    offline_reporter_state: Any
+    block_fetcher_state: BlockFetcherStateV1
+    skip_reporter_state: SkipReporterState
+    offline_reporter_state: OfflineReporterStateV1
+
+
+class AppStateV2(NamedTuple):
+    block_fetcher_state: BlockFetcherStateV1
+    skip_reporter_state: SkipReporterStateV2
+    offline_reporter_state: OfflineReporterStateV2
+
+
+def upgradeV1toV2(v1: AppStateV1):
+    return AppStateV2(
+        block_fetcher_state=v1.block_fetcher_state,
+        skip_reporter_state=skip_reporter.upgradeV1toV2(v1.skip_reporter_state),
+        offline_reporter_state=offline_reporter.upgradeV1toV2(
+            v1.offline_reporter_state
+        ),
+    )
+
+
+class InvalidAppStateException(Exception):
+    pass
 
 
 class App:
@@ -101,13 +129,13 @@ class App:
         rpc_uri,
         chain_spec_path,
         report_dir,
-        db_dir,
+        db_path,
         skip_rate,
         offline_window_size,
         initial_block_resolver,
+        upgrade_db=False,
     ):
         self.report_dir = report_dir
-        self.db_dir = db_dir
 
         self.skip_file = open(report_dir / SKIP_FILE_NAME, "a")
 
@@ -121,8 +149,9 @@ class App:
         self.offline_reporter = None
         self.equivocation_reporter = None
         self.initial_block_resolver = initial_block_resolver
+        self._upgrade_db = upgrade_db
 
-        self._initialize_db(self.db_dir / DB_FILE_NAME)
+        self._initialize_db(db_path)
         self._initialize_w3(rpc_uri)
         self._initialize_primary_oracle(chain_spec_path)
         self._initialize_reporters(skip_rate, offline_window_size)
@@ -145,7 +174,7 @@ class App:
                 max_number_of_blocks=500,
                 max_block_height=self.epoch_fetcher.last_fetch_height,
             )
-            self.db.store_pickled("appstate", self.app_state)
+            self.db.store_pickled(APP_STATE_KEY, self.app_state)
             self.skip_file.flush()
             session.commit()
 
@@ -174,7 +203,7 @@ class App:
 
     @property
     def app_state(self):
-        return AppStateV1(
+        return AppStateV2(
             block_fetcher_state=self.block_fetcher.state,
             skip_reporter_state=self.skip_reporter.state,
             offline_reporter_state=self.offline_reporter.state,
@@ -212,9 +241,13 @@ class App:
             self._update_epochs()
 
     def _initialize_reporters(self, skip_rate, offline_window_size):
-        app_state = self.db.load_pickled("appstate") or self._initialize_app_state()
-        if not isinstance(app_state, AppStateV1):
-            raise RuntimeError("app_state has unexpected format")
+        app_state = self.db.load_pickled(APP_STATE_KEY) or self._initialize_app_state()
+        if not isinstance(app_state, AppStateV2):
+            if self._upgrade_db and isinstance(app_state, AppStateV1):
+                self.logger.info("Upgrade appstate from v1 to v2")
+                app_state = upgradeV1toV2(app_state)
+            else:
+                raise InvalidAppStateException()
 
         self.block_fetcher = BlockFetcher(
             state=app_state.block_fetcher_state,
@@ -238,7 +271,7 @@ class App:
 
     def _initialize_app_state(self):
         self.logger.info("no state entry found, starting from fresh state")
-        return AppStateV1(
+        return AppStateV2(
             block_fetcher_state=BlockFetcher.get_fresh_state(),
             skip_reporter_state=SkipReporter.get_fresh_state(),
             offline_reporter_state=OfflineReporter.get_fresh_state(),
@@ -403,6 +436,12 @@ def _show_version(ctx, param, value):
 )
 @click.option("--sync-from", default="-1000", show_default=True, help="starting block")
 @click.option(
+    "--upgrade-db",
+    help="Allow to upgrade the database (experimental). Some skips will be missed around the upgrade time",
+    is_flag=True,
+    type=bool,
+)
+@click.option(
     "--version",
     help="Print tlbc-monitor version information",
     is_flag=True,
@@ -418,23 +457,37 @@ def main(
     skip_rate,
     offline_window_size_in_seconds,
     sync_from,
+    upgrade_db,
     version,
 ):
     initial_block_resolver = blocksel.make_blockresolver(sync_from)
     offline_window_size_in_steps = offline_window_size_in_seconds // STEP_DURATION
-    app = App(
-        rpc_uri=rpc_uri,
-        chain_spec_path=Path(chain_spec_path),
-        report_dir=Path(report_dir),
-        db_dir=Path(db_dir),
-        skip_rate=skip_rate,
-        offline_window_size=offline_window_size_in_steps,
-        initial_block_resolver=initial_block_resolver,
-    )
+    db_path = Path(db_dir) / DB_FILE_NAME
+    try:
+        app = App(
+            rpc_uri=rpc_uri,
+            chain_spec_path=Path(chain_spec_path),
+            report_dir=Path(report_dir),
+            db_path=db_path,
+            skip_rate=skip_rate,
+            offline_window_size=offline_window_size_in_steps,
+            initial_block_resolver=initial_block_resolver,
+            upgrade_db=upgrade_db,
+        )
 
-    signal.signal(signal.SIGTERM, lambda _signum, _frame: app.stop())
-    signal.signal(signal.SIGINT, lambda _signum, _frame: app.stop())
-    app.run()
+        signal.signal(signal.SIGTERM, lambda _signum, _frame: app.stop())
+        signal.signal(signal.SIGINT, lambda _signum, _frame: app.stop())
+        app.run()
+    except db.InvalidDataError as e:
+        raise click.ClickException(
+            f"Invalid data in database, try to delete {db_path} to force a resync.\n"
+            f"Exception: {e}"
+        ) from e
+    except InvalidAppStateException as e:
+        raise click.ClickException(
+            f"Wrong appstate version in database, try to run with --upgrade-db(experimental) "
+            f"or delete {db_path} to force a resync."
+        ) from e
 
 
 if __name__ == "__main__":

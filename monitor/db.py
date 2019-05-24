@@ -9,7 +9,7 @@ from sqlalchemy import Column, Integer, String, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import exists
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DatabaseError
 
 from monitor.blocks import get_canonicalized_block, get_proposer, get_step
 
@@ -25,6 +25,12 @@ class AlreadyExists(DBError):
 
 
 class NotFound(DBError):
+    pass
+
+
+class InvalidDataError(DBError):
+    """Raise to indicate that the db data is invalid"""
+
     pass
 
 
@@ -89,7 +95,10 @@ class BlockDB:
         self.engine = engine
 
         self.session_class = sessionmaker(bind=self.engine)
-        Base.metadata.create_all(self.engine)
+        try:
+            Base.metadata.create_all(self.engine)
+        except DatabaseError as e:
+            raise InvalidDataError(f"Corrupt db state: {e}") from e
         self.current_session = None
 
     def _get_session(self):
@@ -143,4 +152,7 @@ class BlockDB:
 
     def load_pickled(self, name):
         session = self._get_session()
-        return load_pickled(session, name)
+        try:
+            return load_pickled(session, name)
+        except Exception as e:
+            raise InvalidDataError(f"Invalid {name}: {e}") from e

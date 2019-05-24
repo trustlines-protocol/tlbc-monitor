@@ -1,16 +1,17 @@
 import datetime
 import itertools
-from typing import Any, NamedTuple
+from typing import NamedTuple, List
 
 import structlog
+from web3.datastructures import AttributeDict
 
 from monitor.db import AlreadyExists
 from monitor import blocksel
 
 
 class BlockFetcherStateV1(NamedTuple):
-    head: Any
-    current_branch: Any
+    head: AttributeDict
+    current_branch: List[AttributeDict]
     initial_blocknr: int
 
 
