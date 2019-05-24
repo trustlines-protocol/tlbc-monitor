@@ -9,7 +9,7 @@ def offline_validator_address():
 
 
 @pytest.fixture(scope="session")
-def report_directory():
+def report_directory_path():
     base_directory = os.path.realpath(
         os.path.join(os.path.dirname(__file__), os.pardir)
     )
@@ -18,18 +18,18 @@ def report_directory():
 
 
 @pytest.fixture(scope="session")
-def skip_report_file(report_directory):
-    return os.path.join(report_directory, "skips")
+def skip_report_file_path(report_directory_path):
+    return os.path.join(report_directory_path, "skips")
 
 
 @pytest.fixture(scope="session")
-def skip_report_list(skip_report_file):
-    with open(skip_report_file) as file:
+def skip_report_list(skip_report_file_path):
+    with open(skip_report_file_path) as file:
         return file.readlines()
 
 
 @pytest.fixture(scope="session")
-def offline_report_files(report_directory, offline_validator_address):
+def offline_report_file_paths(report_directory_path, offline_validator_address):
     file_name_pattern = f"offline_report_{offline_validator_address}_steps_*"
-    file_path_pattern = os.path.join(report_directory, file_name_pattern)
+    file_path_pattern = os.path.join(report_directory_path, file_name_pattern)
     return glob.glob(file_path_pattern)

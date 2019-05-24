@@ -5,26 +5,25 @@ import json
 
 def get_missed_step_from_skip_report_entry(skip_report_entry):
     missed_step_findings = re.findall(
-        "([0-9]+),0x[0-9,a-f]+,[0-9,-]+", skip_report_entry
+        "^([0-9]+),0x[0-9,a-f]+,[0-9,-]+ [0-9,:]+$", skip_report_entry.strip()
     )
-    missed_step_string = (
-        missed_step_findings[0] if len(missed_step_findings) == 1 else None
+    missed_step = (
+        int(missed_step_findings[0]) if len(missed_step_findings) == 1 else None
     )
-    missed_step = in(missed_step_string)
     return missed_step
 
 
-def test_offline_report_file_get_created(offline_report_files):
-    assert len(offline_report_files) > 0
+def test_offline_report_file_get_created(offline_report_file_paths):
+    assert len(offline_report_file_paths) > 0
 
-    for file in offline_report_files:
+    for file in offline_report_file_paths:
         assert path.isfile(file)
 
 
 def test_offline_reports_content_is_correct(
-    offline_report_files, offline_validator_address, skip_report_list
+    offline_report_file_paths, offline_validator_address, skip_report_list
 ):
-    for index, report_file in enumerate(offline_report_files):
+    for index, report_file in enumerate(offline_report_file_paths):
         with open(report_file) as file:
             report = json.load(file)
 
