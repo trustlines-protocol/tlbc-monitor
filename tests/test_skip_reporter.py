@@ -28,6 +28,20 @@ def test_no_skips(report_callback, primary_oracle):
     report_callback.assert_not_called()
 
 
+def test_do_not_report_skips_after_genesis(report_callback, primary_oracle):
+    # The genesis is always 0, so we do not want to report misses right after genesis
+    skip_reporter = SkipReporter(
+        state=SkipReporter.get_fresh_state(),
+        primary_oracle=primary_oracle,
+        grace_period=5,
+    )
+    skip_reporter.register_report_callback(report_callback)
+
+    for step in [0, 10, 11]:
+        skip_reporter(mock_block(step, number=step))
+    report_callback.assert_not_called()
+
+
 def test_validator_offline(primary_oracle, report_callback, validators):
     skip_reporter = SkipReporter(
         state=SkipReporter.get_fresh_state(),

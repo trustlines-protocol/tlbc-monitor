@@ -31,6 +31,8 @@ def test_genesis(w3, block_fetcher):
 
 
 def test_fetch_single_blocks(eth_tester, block_fetcher, report_callback):
+    block_fetcher.fetch_and_insert_new_blocks()  # genesis
+    report_callback.reset_mock()
     for block_number in range(1, 100):
         eth_tester.mine_blocks(1)
         block_fetcher.fetch_and_insert_new_blocks()
@@ -42,8 +44,9 @@ def test_fetch_single_blocks(eth_tester, block_fetcher, report_callback):
 def test_fetch_multiple_blocks(eth_tester, block_fetcher, report_callback):
     eth_tester.mine_blocks(3)
     block_fetcher.fetch_and_insert_new_blocks()
-    assert report_callback.call_count == 3
+    assert report_callback.call_count == 4
     assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
+        0,
         1,
         2,
         3,
@@ -93,7 +96,7 @@ def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_call
     assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=6) == 6
     assert block_fetcher.head.number == 5
     assert len(block_fetcher.current_branch) == 0
-    assert report_callback.call_count == 6 - 1  # genesis is not reported
+    assert report_callback.call_count == 6
     report_callback.reset_mock()
 
     # sync blocks 6 to 7 forwards, start backward sync with block 10
@@ -116,9 +119,12 @@ def test_fetch_multiple_blocks_with_max_number_of_blocks(
 ):
     eth_tester.mine_blocks(3)
     block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=3)
-    report_callback.assert_not_called()
+    assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
+        0
+    ]
     block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=1)
     assert [call_args[0][0].number for call_args in report_callback.call_args_list] == [
+        0,
         1,
         2,
         3,
@@ -128,14 +134,15 @@ def test_fetch_multiple_blocks_with_max_number_of_blocks(
 def test_fetch_exact_number_of_blocks(eth_tester, block_fetcher, report_callback):
     eth_tester.mine_blocks(5)
     block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=6)
-    assert report_callback.call_count == 5  # No callback for the genesis block
+    assert report_callback.call_count == 6
 
 
 def test_noticed_reorg(w3, eth_tester, block_fetcher, report_callback):
     coinbase1, coinbase2 = eth_tester.get_accounts()[:2]
 
     # mine some common blocks
-    common_hashes = eth_tester.mine_blocks(2, coinbase=coinbase1)
+    common_hashes = [0]  # genesis
+    common_hashes.extend(eth_tester.mine_blocks(2, coinbase=coinbase1))
     common_reports = [call(w3.eth.getBlock(h)) for h in common_hashes]
 
     # point of fork
@@ -290,7 +297,8 @@ def test_rediscovered_reorg(w3, eth_tester, block_fetcher, report_callback):
     coinbase1, coinbase2 = eth_tester.get_accounts()[:2]
 
     # mine some common blocks
-    common_hashes = eth_tester.mine_blocks(2, coinbase=coinbase1)
+    common_hashes = [0]  # genesis
+    common_hashes.extend(eth_tester.mine_blocks(2, coinbase=coinbase1))
     common_reports = [call(w3.eth.getBlock(h)) for h in common_hashes]
 
     # point of fork
@@ -344,7 +352,8 @@ def test_restart(w3, eth_tester, block_fetcher, report_callback):
 
 
 def test_restart_with_fetch(w3, eth_tester, block_fetcher, report_callback):
-    new_block_hashes = eth_tester.mine_blocks(6)
+    new_block_hashes = [0]  # genesis
+    new_block_hashes.extend(eth_tester.mine_blocks(6))
     reports = [call(w3.eth.getBlock(h)) for h in new_block_hashes]
     block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=4)
 
