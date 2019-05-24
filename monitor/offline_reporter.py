@@ -20,10 +20,31 @@ class OfflineInterval(NamedTuple):
 
 class OfflineReporterStateV1(NamedTuple):
     reported_validators: Set[bytes]
+    recent_skips_by_validator: Dict[bytes, Set[int]]
+
+
+class OfflineReporterStateV2(NamedTuple):
+    reported_validators: Set[bytes]
     recent_offline_intervals_by_validator: Dict[bytes, List[OfflineInterval]]
 
     # offline time in number of steps
     offline_time_by_validator: Dict[bytes, int]
+
+
+def upgradeV1toV2(v1: OfflineReporterStateV1):
+    return OfflineReporterStateV2(
+        reported_validators=v1.reported_validators,
+        recent_offline_intervals_by_validator={
+            # Best we can do is to assume that they were at least 1 step offline
+            validator: [OfflineInterval(step, 1) for step in recent_skips]
+            for validator, recent_skips in v1.recent_skips_by_validator.items()
+        },
+        offline_time_by_validator={
+            # assume offline for at least length of steps
+            validator: len(recent_skips)
+            for validator, recent_skips in v1.recent_skips_by_validator.items()
+        },
+    )
 
 
 class OfflineReporter:
@@ -37,7 +58,7 @@ class OfflineReporter:
 
     def __init__(
         self,
-        state: OfflineReporterStateV1,
+        state: OfflineReporterStateV2,
         primary_oracle: PrimaryOracle,
         offline_window_size,
         allowed_skip_rate,
@@ -63,7 +84,7 @@ class OfflineReporter:
 
     @staticmethod
     def get_fresh_state():
-        return OfflineReporterStateV1(
+        return OfflineReporterStateV2(
             reported_validators=set(),
             recent_offline_intervals_by_validator={},
             offline_time_by_validator={},
@@ -71,7 +92,7 @@ class OfflineReporter:
 
     @property
     def state(self):
-        return OfflineReporterStateV1(
+        return OfflineReporterStateV2(
             reported_validators=self.reported_validators,
             recent_offline_intervals_by_validator=dict(
                 self.recent_offline_intervals_by_validator
