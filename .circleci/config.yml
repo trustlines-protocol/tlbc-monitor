@@ -142,7 +142,7 @@ jobs:
           name: Run pytest
           command: |
             mkdir -p test-reports
-            pytest --junitxml=test-reports/junit.xml
+            pytest --junitxml=test-reports/junit.xml --ignore=e2e_tests
       # export test metadata to circleci, see
       # https://circleci.com/docs/2.0/collect-test-data/#pytest
       - store_test_results:
