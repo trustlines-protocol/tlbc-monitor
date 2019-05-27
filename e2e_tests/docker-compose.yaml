@@ -33,4 +33,4 @@ services:
     command: >
       --rpc-uri http://validator_one:8545
       --chain-spec-path /config/chain_specification.json
-      --offline-window 1
+      --offline-window 5
