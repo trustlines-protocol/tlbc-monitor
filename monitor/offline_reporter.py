@@ -31,7 +31,7 @@ class OfflineReporterStateV2(NamedTuple):
     offline_time_by_validator: Dict[bytes, int]
 
 
-def upgradeV1toV2(v1: OfflineReporterStateV1):
+def upgrade_v1_to_v2(v1: OfflineReporterStateV1):
     return OfflineReporterStateV2(
         reported_validators=v1.reported_validators,
         recent_offline_intervals_by_validator={

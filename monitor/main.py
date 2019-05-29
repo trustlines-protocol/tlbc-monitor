@@ -27,7 +27,7 @@ from monitor.offline_reporter import (
     OfflineReporterStateV1,
 )
 from monitor import skip_reporter
-from monitor.skip_reporter import SkipReporter, SkipReporterStateV2, SkipReporterState
+from monitor.skip_reporter import SkipReporter, SkipReporterStateV2, SkipReporterStateV1
 from monitor.equivocation_reporter import EquivocationReporter
 from monitor.blocks import get_canonicalized_block, get_proposer, rlp_encoded_block
 from monitor.validators import (
@@ -95,7 +95,7 @@ def step_number_to_timestamp(step):
 
 class AppStateV1(NamedTuple):
     block_fetcher_state: BlockFetcherStateV1
-    skip_reporter_state: SkipReporterState
+    skip_reporter_state: SkipReporterStateV1
     offline_reporter_state: OfflineReporterStateV1
 
 
@@ -105,11 +105,11 @@ class AppStateV2(NamedTuple):
     offline_reporter_state: OfflineReporterStateV2
 
 
-def upgradeV1toV2(v1: AppStateV1):
+def upgrade_v1_to_v2(v1: AppStateV1):
     return AppStateV2(
         block_fetcher_state=v1.block_fetcher_state,
-        skip_reporter_state=skip_reporter.upgradeV1toV2(v1.skip_reporter_state),
-        offline_reporter_state=offline_reporter.upgradeV1toV2(
+        skip_reporter_state=skip_reporter.upgrade_v1_to_v2(v1.skip_reporter_state),
+        offline_reporter_state=offline_reporter.upgrade_v1_to_v2(
             v1.offline_reporter_state
         ),
     )
@@ -149,12 +149,16 @@ class App:
         self.offline_reporter = None
         self.equivocation_reporter = None
         self.initial_block_resolver = initial_block_resolver
-        self._upgrade_db = upgrade_db
 
         self._initialize_db(db_path)
         self._initialize_w3(rpc_uri)
         self._initialize_primary_oracle(chain_spec_path)
-        self._initialize_reporters(skip_rate, offline_window_size)
+
+        app_state = self._load_app_state()
+        if upgrade_db:
+            app_state = self._upgrade_app_state(app_state)
+
+        self._initialize_reporters(app_state, skip_rate, offline_window_size)
         self._register_reporter_callbacks()
         self._running = False
 
@@ -240,14 +244,9 @@ class App:
 
             self._update_epochs()
 
-    def _initialize_reporters(self, skip_rate, offline_window_size):
-        app_state = self.db.load_pickled(APP_STATE_KEY) or self._initialize_app_state()
+    def _initialize_reporters(self, app_state, skip_rate, offline_window_size):
         if not isinstance(app_state, AppStateV2):
-            if self._upgrade_db and isinstance(app_state, AppStateV1):
-                self.logger.info("Upgrade appstate from v1 to v2")
-                app_state = upgradeV1toV2(app_state)
-            else:
-                raise InvalidAppStateException()
+            raise InvalidAppStateException()
 
         self.block_fetcher = BlockFetcher(
             state=app_state.block_fetcher_state,
@@ -276,6 +275,21 @@ class App:
             skip_reporter_state=SkipReporter.get_fresh_state(),
             offline_reporter_state=OfflineReporter.get_fresh_state(),
         )
+
+    def _load_app_state(self):
+        """Loads and returns the app state object. Make sure do initialize the db first"""
+        return self.db.load_pickled(APP_STATE_KEY) or self._initialize_app_state()
+
+    def _upgrade_app_state(self, app_state):
+        if isinstance(app_state, AppStateV1):
+            self.logger.info("Upgrade appstate from v1 to v2")
+            return upgrade_v1_to_v2(app_state)
+        elif isinstance(app_state, AppStateV2):
+            return app_state
+        else:
+            raise InvalidAppStateException(
+                "Can not upgrade unsupported app state version"
+            )
 
     def _register_reporter_callbacks(self):
         self.block_fetcher.register_report_callback(self.skip_reporter)

@@ -7,9 +7,13 @@ from eth_utils import encode_hex
 from monitor.validators import PrimaryOracle
 
 
-class SkipReporterState(NamedTuple):
+class SkipReporterStateV1(NamedTuple):
     latest_step: int
     open_steps: Set[int]
+
+
+# We have to keep the not versioned name for backwards compatibility because we use pickle
+SkipReporterState = SkipReporterStateV1
 
 
 class SkipReporterStateV2(NamedTuple):
@@ -17,7 +21,7 @@ class SkipReporterStateV2(NamedTuple):
     open_skipped_proposals: Set["SkippedProposal"]
 
 
-def upgradeV1toV2(v1: SkipReporterState):
+def upgrade_v1_to_v2(v1: SkipReporterStateV1):
     # As we can not recover the block height, we will just clear the proposels
     return SkipReporterStateV2(latest_step=v1.latest_step, open_skipped_proposals=set())
 
@@ -73,7 +77,7 @@ class SkipReporter:
             # so we ignore the genesis block
             return
 
-        if self.latest_step is 0:
+        if self.latest_step == 0:
             self.latest_step = block_step
             self.logger.debug("received first block", step=self.latest_step)
             return
