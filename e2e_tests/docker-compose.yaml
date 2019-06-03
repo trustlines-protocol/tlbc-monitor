@@ -1,5 +1,16 @@
 version: '3.7'
 services:
+  # the helper is only used to populate the shared volume
+  # please note that we are not able to use bind mounts on circleci unless we
+  # would use the machine images
+  helper:
+    image: ubuntu:18.04
+    container_name: e2e-helper
+    volumes:
+      - tests:/tests
+      - reports:/reports
+    command: ["true"]
+
   validator_one:
     container_name: validator_one
     build:
@@ -29,8 +40,24 @@ services:
       - validator_two
     volumes:
       - ./configuration:/config
-      - ./reports:/opt/tlbc-monitor/reports
+      - reports:/opt/tlbc-monitor/reports
     command: >
       --rpc-uri http://validator_one:8545
       --chain-spec-path /config/chain_specification.json
       --offline-window 5
+
+  testrunner:
+    container_name: testrunner
+    build:
+      context: .
+      dockerfile: Dockerfile_testrunner
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - tests:/work/tests
+      - reports:/work/reports
+    command: ["/opt/testrunner/bin/pytest", "tests"]
+
+volumes:
+  reports:
+  tests:

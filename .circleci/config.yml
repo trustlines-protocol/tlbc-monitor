@@ -211,6 +211,24 @@ jobs:
             docker tag $LOCAL_IMAGE $DOCKER_REPO:latest
             docker push $DOCKER_REPO:latest
 
+  end2end:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - checkout
+      - run:
+          name: Pull images
+          command: |
+            cd e2e_tests; docker-compose pull
+      - run:
+          name: Build images
+          command: |
+            cd e2e_tests; docker-compose build
+      - run:
+          name: "Run end2end tests"
+          command: |
+            e2e_tests/run-e2e.sh
+
 workflows:
   version: 2
   default:
@@ -259,3 +277,4 @@ workflows:
             - install
             - build-docker-image
           context: docker-credentials
+      - end2end
