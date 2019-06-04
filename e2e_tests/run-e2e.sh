@@ -54,7 +54,7 @@ docker cp tests e2e-helper:/
 echo "===> Starting services"
 docker-compose up -d validator_one validator_two monitor
 echo "===> Waiting for blocks to get mined"
-timeout --foreground 105 docker-compose logs -t -f
+timeout --foreground 105 docker-compose logs -f
 echo "===> running pytest"
 docker-compose up -d testrunner
 result=$(docker wait testrunner)

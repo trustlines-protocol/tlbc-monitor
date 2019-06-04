@@ -8,12 +8,10 @@
 					"multi": {
 						"0": {
 							"list": [
-								"0x46ae357ba2f459cb04697837397ec90b47e48727",
-								"0x260ea46e50c7111f08f7e8c863235ebcf29bb1a1",
-								"0xe7a664509027ff348d379bb5d3a8340aaecb56eb"
+								"0x46ae357ba2f459cb04697837397ec90b47e48727"
 							]
 						},
-						"5": {
+						"2": {
 							"contract": "9cce34f7ab185c7aba1b7c8140d620b4bda941d7"
 						}
 					}
