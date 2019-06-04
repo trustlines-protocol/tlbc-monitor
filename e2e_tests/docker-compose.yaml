@@ -44,7 +44,7 @@ services:
     command: >
       --rpc-uri http://validator_one:8545
       --chain-spec-path /config/chain_specification.json
-      --offline-window 5
+      --offline-window 15
 
   testrunner:
     container_name: testrunner
