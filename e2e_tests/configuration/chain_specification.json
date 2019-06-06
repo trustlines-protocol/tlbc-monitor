@@ -12,7 +12,7 @@
 							]
 						},
 						"4": {
-							"contract": "9cce34f7ab185c7aba1b7c8140d620b4bda941d7"
+							"safeContract": "9cce34f7ab185c7aba1b7c8140d620b4bda941d7"
 						}
 					}
 				}
@@ -29,9 +29,9 @@
 		"eip211Transition": "0x0",
 		"eip214Transition": "0x0",
 		"eip658Transition": "0x0",
-        "eip145Transition": "0x2B08BA",
-        "eip1014Transition": "0x2B08BA",
-        "eip1052Transition": "0x2B08BA"
+		"eip145Transition": "0x0",
+		"eip1014Transition": "0x0",
+		"eip1052Transition": "0x0"
 	},
 	"genesis": {
 		"seal": {
