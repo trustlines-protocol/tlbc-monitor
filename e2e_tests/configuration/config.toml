@@ -8,4 +8,3 @@ password = ["/home/parity/.local/share/io.parity.ethereum/password"]
 
 [mining]
 force_sealing = true
-
