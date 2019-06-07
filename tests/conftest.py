@@ -55,7 +55,7 @@ def address_to_private_key():
 def w3(eth_tester):
     provider = EthereumTesterProvider(eth_tester)
     w3 = Web3(provider)
-    w3.middleware_stack.add(key_renaming_middleware)
+    w3.middleware_onion.add(key_renaming_middleware)
     return w3
 
 
