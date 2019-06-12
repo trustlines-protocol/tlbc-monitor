@@ -3,6 +3,7 @@ eth-utils
 structlog
 web3
 sqlalchemy
+contract-deploy-tools
 
 # --- development dependencies, i.e. dependencies not needed for running
 pytest
