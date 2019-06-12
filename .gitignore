@@ -116,7 +116,3 @@ dmypy.json
 
 # e2e tests
 e2e_tests/validator_*/keys/e2e_test_chain/address_book.json
-
-# report validator
-report-validator/report_validator/contracts.json
-report-validator/.installed
