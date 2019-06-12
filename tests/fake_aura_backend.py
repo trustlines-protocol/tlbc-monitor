@@ -15,7 +15,7 @@ from eth_utils.toolz import identity
 from web3.datastructures import AttributeDict
 from web3.middleware import construct_formatting_middleware
 from web3.providers.eth_tester.middleware import block_key_remapper
-from web3.utils.formatters import apply_formatter_if
+from web3._utils.formatters import apply_formatter_if
 
 from monitor.blocks import calculate_block_signature
 
