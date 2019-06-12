@@ -6,7 +6,19 @@ setup(
     use_scm_version=True,
     packages=find_packages(),
     package_data={"monitor": ["validator_contract_abi.json"]},
-    install_requires=["click", "eth_utils", "structlog", "web3", "sqlalchemy"],
+    install_requires=[
+        "click",
+        "eth_utils",
+        "structlog",
+        "web3",
+        "sqlalchemy",
+        "contract-deploy-tools",
+    ],
     extras_require={"test": ["eth-tester[py-evm]", "pytest"]},
-    entry_points={"console_scripts": ["tlbc-monitor=monitor.main:main"]},
+    entry_points={
+        "console_scripts": [
+            "tlbc-monitor=monitor.main:main",
+            "report-validator=report_validator.cli:main",
+        ]
+    },
 )

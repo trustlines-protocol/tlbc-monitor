@@ -1,6 +1,0 @@
-click
-web3
-contract-deploy-tools
-pysha3
-py-geth
-pytest-ethereum

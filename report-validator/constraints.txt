@@ -1,6 +1,0 @@
-Click==7.0
-contract-deploy-tools==0.4.0
-pysha3==1.0.2
-web3==5.0.0b2
-py-geth==2.1.0
-pytest-ethereum==0.1.3a6
