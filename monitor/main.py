@@ -357,9 +357,9 @@ class App:
             "block_step": block_one.step,
             "detection_time": datetime.datetime.utcnow(),
             "block_hash_timestamp_summary": block_hash_and_timestamp_summary,
-            "rlp_encoded_block_header_one": rlp_encoded_block(block_one),
+            "rlp_encoded_block_header_one": encode_hex(rlp_encoded_block(block_one)),
             "signature_block_header_one": keys.Signature(block_one.signature),
-            "rlp_encoded_block_header_two": rlp_encoded_block(block_two),
+            "rlp_encoded_block_header_two": encode_hex(rlp_encoded_block(block_two)),
             "signature_block_header_two": keys.Signature(block_two.signature),
         }
 
