@@ -1,0 +1,12 @@
+# This will build the currently checked out version
+#
+#
+# you can build the image with:
+#
+#    docker build -t tlbc-monitor .
+#
+#    docker build -t report-validator -f Dockerfile.report-validator .
+
+
+FROM tlbc-monitor
+ENTRYPOINT ["report-validator"]

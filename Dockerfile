@@ -43,6 +43,7 @@ RUN apt-get update \
     && apt-get install -y apt-utils python3 \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /opt/tlbc-monitor/bin/tlbc-monitor /usr/local/bin/ \
+    && ln -s /opt/tlbc-monitor/bin/report-validator /usr/local/bin/ \
     && mkdir -p /opt/tlbc-monitor/reports
 
 FROM runner
