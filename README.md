@@ -73,9 +73,9 @@ docker run --name monitor -d --restart=always --link trustlines-testnet:parity -
 ## Report Malicious Validators
 
 When the monitor reported an equivocation by a malicious validator, it is
-possibly to remove that validator. Therefore the information to proof the
-equivocation must be provided to the `reportMaliciousValidator` function at the
-validator set contract. These information can be found at the created report
+possible to remove that validator from the validator set. The information to proof the
+equivocation must be provided via the `reportMaliciousValidator` function to the
+validator set contract. This information can be found at the created report
 file, located at the directory defined with `--report-dir`. The file is named
 like `equivocation_reports_for_proposer_0x...` followed by the address of the
 malicious validator. There is one such file per validator who has equivocated.
@@ -96,20 +96,18 @@ Please make sure to use the currently active validator set contract address,
 which can be found within the [chain
 specification](https://github.com/trustlines-protocol/blockchain/blob/836e456d5ed8bcb576986e1c4cfe60603d14dcd0/config/trustlines-spec.json#L7).
 
-The former example assumes that a _Parity_ node running on
-`http://localhost:8545` and has an account unlocked to sign the transaction.
-Both can be overwritten by `--jsonrpc` (mark that `--net="host"` could becomes
-obsolete for this case) and `--keystore`. Last option will ask you to enter the
-password to unlock the private key.
+The former example assumes a running _Parity_ node on `http://localhost:8545`
+with an account unlocked to sign the transaction. The URL of the parity node can
+be specified with the `--jsonrpc` option. `--keystore` can be specified to sign
+the transaction with a local key instead of relying on an unlocked account.
 
 Furthermore there are is the possibility to adjust the default transaction
 options by using `--gas`, `--gas-price`, `--nounce` and `--auto-nounce`.
 Checkout the `--help` for further information.
 
-At last but not least it is possible to enter the equivocation proof information
-manually in case no report file is available. It does only differ in the way of
-providing these information. All other options remain the same as described
-before.
+It is also possible to enter the equivocation proof information manually in case
+no report file is available. It does only differ in the way of providing these
+information. All other options remain the same as described before.
 
 ```sh
 docker --rm --net="host" trustlines/report-validator report-via-arguments \
