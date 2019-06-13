@@ -1,12 +1,13 @@
-# This will build the currently checked out version
+# Build a docker image for running the report-validator script
+# We just change the tlbc-monitor image to use report-validator as entrypoint.
 #
-#
-# you can build the image with:
+# Make sure the tlbc-monitor image has been build with
 #
 #    docker build -t tlbc-monitor .
 #
+# Then build the report-validator image with:
+#
 #    docker build -t report-validator -f Dockerfile.report-validator .
-
 
 FROM tlbc-monitor
 ENTRYPOINT ["report-validator"]
