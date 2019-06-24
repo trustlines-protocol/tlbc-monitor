@@ -64,6 +64,10 @@ class BlockFetcher:
             initial_blocknr=self.initial_blocknr,
         )
 
+    @property
+    def _backwards_sync_in_progress(self) -> bool:
+        return len(self.current_branch) > 0
+
     def register_report_callback(self, callback):
         self.report_callbacks.append(callback)
 
@@ -133,21 +137,24 @@ class BlockFetcher:
 
         self._save_sync_start()
 
-        forward_sync_target = self.fetch_forward_sync_target()
+        if not self._backwards_sync_in_progress:
+            forward_sync_target = self.fetch_forward_sync_target()
 
-        # sync forwards at most up until the forward sync target, but no more than
-        # max_number_of_blocks
-        max_forward_block_height = (
-            forward_sync_target
-            if max_block_height is None
-            else min(forward_sync_target, max_block_height)
-        )
-        max_forward_sync_blocks = max(0, max_number_of_blocks - number_of_synced_blocks)
+            # sync forwards at most up until the forward sync target, but no more than
+            # max_number_of_blocks
+            max_forward_block_height = (
+                forward_sync_target
+                if max_block_height is None
+                else min(forward_sync_target, max_block_height)
+            )
+            max_forward_sync_blocks = max(
+                0, max_number_of_blocks - number_of_synced_blocks
+            )
 
-        number_of_synced_blocks += self._sync_forwards(
-            max_number_of_blocks=max_forward_sync_blocks,
-            max_block_height=max_forward_block_height,
-        )
+            number_of_synced_blocks += self._sync_forwards(
+                max_number_of_blocks=max_forward_sync_blocks,
+                max_block_height=max_forward_block_height,
+            )
 
         # sync backwards until we have synced max_number_of_blocks in total or we are fully synced
         assert 0 <= number_of_synced_blocks <= max_number_of_blocks

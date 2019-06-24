@@ -114,6 +114,32 @@ def test_forward_backward_sync_transition(eth_tester, block_fetcher, report_call
     report_callback.reset_mock()
 
 
+def test_always_finish_backwards_sync(eth_tester, block_fetcher, report_callback):
+    eth_tester.mine_blocks(3)
+
+    # start backwards sync
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=2) == 2
+    assert block_fetcher.head.number == 0
+    assert report_callback.call_count == 1  # only genesis
+    report_callback.reset_mock()
+
+    # mine lots of new blocks that would trigger forwards sync if backwards sync were not already in
+    # progress
+    eth_tester.mine_blocks(10)
+
+    # finish backwards sync
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=10) == 2
+    assert block_fetcher.head.number == 3
+    assert report_callback.call_count == 3
+    report_callback.reset_mock()
+
+    # only now start forward sync
+    assert block_fetcher.fetch_and_insert_new_blocks(max_number_of_blocks=3) == 3
+    assert block_fetcher.head.number == 6
+    assert report_callback.call_count == 3
+    report_callback.reset_mock()
+
+
 def test_fetch_multiple_blocks_with_max_number_of_blocks(
     eth_tester, block_fetcher, report_callback
 ):
