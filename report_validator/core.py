@@ -2,7 +2,7 @@ from deploy_tools.deploy import send_function_call_transaction
 from eth_utils import encode_hex
 
 
-VALIDATOR_SET_ABI_SIMPLIFIED = [
+SIMPLE_REPORT_MALICIOUS_ABI = [
     {
         "constant": False,
         "inputs": [
@@ -31,7 +31,7 @@ def report_malicious_validator(
     signature_two,
 ):
     validator_set_contract = web3.eth.contract(
-        abi=VALIDATOR_SET_ABI_SIMPLIFIED, address=validator_set_contract_address
+        abi=SIMPLE_REPORT_MALICIOUS_ABI, address=validator_set_contract_address
     )
 
     report_validator_call = validator_set_contract.functions.reportMaliciousValidator(
@@ -48,4 +48,4 @@ def report_malicious_validator(
         private_key=private_key,
     )
 
-    print(f"Transaction hash: {encode_hex(transaction_receipt.transactionHash)}")
+    return encode_hex(transaction_receipt.transactionHash)
