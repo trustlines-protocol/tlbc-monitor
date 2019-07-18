@@ -73,45 +73,56 @@ docker run --name monitor -d --restart=always --link trustlines-testnet:parity -
 ## Report Malicious Validators
 
 When the monitor reported an equivocation by a malicious validator, it is
-possible to remove that validator from the validator set. The information to proof the
-equivocation must be provided via the `reportMaliciousValidator` function to the
-validator set contract. This information can be found at the created report
-file, located at the directory defined with `--report-dir`. The file is named
-like `equivocation_reports_for_proposer_0x...` followed by the address of the
+possible to remove that validator from the validator set and slash their deposit on the Ethereum main chain.
+The information required to prove the equivocation can be found in the created report file
+located at the directory defined with `--report-dir` (default `./reports`). The file is named
+ `equivocation_reports_for_proposer_0x...` followed by the address of the
 malicious validator. There is one such file per validator who has equivocated.
 Multiple violations by the same address will be attached to the end of the first
-report. To remove a validator it does not matter which equivocation event is
-choosen.
+report in the same file. It does not matter which proof is chosen to slash / remove a validator.
+
+To remove a validator from the validator set on the Trustlines chain, one needs to send the proof to the
+`reportMaliciousValidator` function of the ValidatorSet contract on the Trustlines chain.
+
+To slash the deposit of the validator on the main chain, one needs to send the proof to the
+`reportMaliciousValidator` function of the ValidatorSlasher contract on the Ethereum main chain.
+
 
 The `report-validator` tool can be used to simplify the report process. An
 example call would look like this:
 
 ```sh
 docker --rm --net="host" --volume $(pwd)/reports:/reports trustlines/report-validator report-via-file \
-  --validator-set-contract-address 0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c \
+  --contract-address 0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c \
+  --jsonrpc http://127.0.0.1:8545 \
   --equivocation-report /reports/equivocation_reports_for_proposer_0x505ab22ef8f3ae874dec92e60665ca490fb68192
 ```
 
-Please make sure to use the currently active validator set contract address,
-which can be found within the [chain
-specification](https://github.com/trustlines-protocol/blockchain/blob/836e456d5ed8bcb576986e1c4cfe60603d14dcd0/config/trustlines-spec.json#L7).
-
-The former example assumes a running _Parity_ node on `http://localhost:8545`
-with an account unlocked to sign the transaction. The URL of the parity node can
-be specified with the `--jsonrpc` option. `--keystore` can be specified to sign
-the transaction with a local key instead of relying on an unlocked account.
+In the above example, `./reports` is the directory containing the reports of equivocating
+validator with address `0x505ab22ef8f3ae874dec92e60665ca490fb68192`,
+the address of the reporting contract is `0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c`.
+It assumes a running _Parity_ node on `http://127.0.0.1:8545` syncing the desired chain:
+Ethereum main chain for slashing or Trustlines chain for removing a validator.
+The parity node is expected to have an unlocked account to sign the transaction.
+The URL of the parity node can otherwise be specified with the `--jsonrpc` option.
+`--keystore` can be specified to sign the transaction with a local key
+instead of relying on an unlocked account.
 
 Furthermore there are is the possibility to adjust the default transaction
 options by using `--gas`, `--gas-price`, `--nounce` and `--auto-nounce`.
 Checkout the `--help` for further information.
 
+Please make sure to use the currently active validator set contract address,
+which can be found within the [chain
+specification](https://github.com/trustlines-protocol/blockchain/blob/836e456d5ed8bcb576986e1c4cfe60603d14dcd0/config/trustlines-spec.json#L7).
+
 It is also possible to enter the equivocation proof information manually in case
-no report file is available. It does only differ in the way of providing these
+no report file is available. It only differs in the way of providing these
 information. All other options remain the same as described before.
 
 ```sh
 docker --rm --net="host" trustlines/report-validator report-via-arguments \
-  --validator-set-contract-address 0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c \
+  --contract-address 0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c \
   --unsigned-block-header-one 0xf901f9a08b0b6994dedb8765f7b39f95ec70a4e027812224b811cb7c95373998f3db5677a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d4934794505ab22ef8f3ae874dec92e60665ca490fb68192a02ab8e45aa54b0c26532eebe73d73b890887a047108dc9a5ce99f6cad89175b9ba056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000090ffffffffffffffffffffffffed71d01501837a120080845cc6ef929fde8302010b8f5061726974792d457468657265756d86312e33342e30826c69 \
   --signature-one 0x6f34ee0b150bfba5fc88bf9e2731318dd35776606c91cff14bf2fd2ca4a10b726d96623efdf609c11311bb852b213b233298ea3e3cce5c5c96db627bbc2ddf2900 \
   --unsigned-block-header-two 0xf901f9a0e05e23fb6a3bec793185af81000e0f723fa14205d7ac262b7b8520ed8316cbe5a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d4934794505ab22ef8f3ae874dec92e60665ca490fb68192a0c7b66672d9f26caec060c8d91b9088344eb1210efc494b2593dbdc31481ab454a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421a056e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421b901000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000090fffffffffffffffffffffffffffffffe05837a120080845cc6ef929fde8302010b8f5061726974792d457468657265756d86312e33342e30826c69 \
