@@ -1,7 +1,5 @@
 import click
 
-from eth_utils import encode_hex
-
 from deploy_tools.deploy import build_transaction_options
 from deploy_tools.cli import (
     jsonrpc_option,
@@ -24,9 +22,10 @@ from .validation import (
 )
 
 
-validator_set_contract_address_option = click.option(
-    "--validator-set-contract-address",
-    help="The address of the validator set contract that is active for the current epoch.",
+reporting_contract_option = click.option(
+    "--contract-address",
+    help="The address of the reporting contract, can either be the ValidatorSet contract on the Trustlines chain "
+         "for removing a validator or the ValidatorSlasher contract on the Ethereum main chain to slash a validator.",
     type=str,
     required=True,
     callback=validate_address,
@@ -82,6 +81,8 @@ def main():
     short_help=(
         "Report a validator who has equivocated on the Trustlines Chain."
         "Requires to provide all equivocation proof information manually as arguments."
+        "The report can be sent to the ValidatorSet contract on the TL chain "
+        "or to the ValidatorSlasher contract on the Ethereum main chain"
     )
 )
 @keystore_option
@@ -90,7 +91,7 @@ def main():
 @nonce_option
 @auto_nonce_option
 @jsonrpc_option
-@validator_set_contract_address_option
+@reporting_contract_option
 @unsigned_block_header_one_option
 @signature_one_option
 @unsigned_block_header_two_option
@@ -102,7 +103,7 @@ def report_via_arguments(
     nonce: int,
     auto_nonce: bool,
     jsonrpc: str,
-    validator_set_contract_address,
+    contract_address,
     unsigned_block_header_one,
     signature_one,
     unsigned_block_header_two,
@@ -120,22 +121,26 @@ def report_via_arguments(
         gas=gas, gas_price=gas_price, nonce=nonce
     )
 
-    report_malicious_validator(
+    tx_hash = report_malicious_validator(
         web3,
         transaction_options,
         private_key,
-        validator_set_contract_address,
+        contract_address,
         unsigned_block_header_one,
         signature_one,
         unsigned_block_header_two,
         signature_two,
     )
 
+    click.echo(f"Transaction hash: {tx_hash}")
+
 
 @main.command(
     short_help=(
-        "Report a validator who has equivocated on the Trustlines Chain."
+        "Report a validator who has equivocated on the Trustlines chain."
         "Equivocation proof information are parsed from a report file."
+        "The report can be sent to the ValidatorSet contract on the TL chain "
+        "or to the ValidatorSlasher contract on the Ethereum main chain"
     )
 )
 @keystore_option
@@ -144,7 +149,7 @@ def report_via_arguments(
 @nonce_option
 @auto_nonce_option
 @jsonrpc_option
-@validator_set_contract_address_option
+@reporting_contract_option
 @equivocation_report_option
 def report_via_file(
     keystore: str,
@@ -153,7 +158,7 @@ def report_via_file(
     nonce: int,
     auto_nonce: bool,
     jsonrpc: str,
-    validator_set_contract_address,
+    contract_address,
     equivocation_report,
 ) -> None:
 
@@ -168,13 +173,15 @@ def report_via_file(
         gas=gas, gas_price=gas_price, nonce=nonce
     )
 
-    report_malicious_validator(
+    tx_hash = report_malicious_validator(
         web3,
         transaction_options,
         private_key,
-        validator_set_contract_address,
+        contract_address,
         equivocation_report["unsigned_block_header_one"],
         equivocation_report["signature_one"],
         equivocation_report["unsigned_block_header_two"],
         equivocation_report["signature_two"],
     )
+
+    click.echo(f"Transaction hash: {tx_hash}")
