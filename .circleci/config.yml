@@ -71,7 +71,7 @@ jobs:
       - run:
           name: Run flake8
           command: |
-            flake8 setup.py monitor tests
+            flake8 setup.py monitor tests e2e_tests report_validator
   install:
     executor: ubuntu-builder
     working_directory: ~/repo
@@ -115,7 +115,7 @@ jobs:
       - run:
           name: Run black
           command: |
-            black --check setup.py monitor tests
+            black --check setup.py monitor tests e2e_tests report_validator
 
   run-mypy:
     executor: ubuntu-builder

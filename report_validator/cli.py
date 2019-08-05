@@ -25,7 +25,7 @@ from .validation import (
 reporting_contract_option = click.option(
     "--contract-address",
     help="The address of the reporting contract, can either be the ValidatorSet contract on the Trustlines chain "
-         "for removing a validator or the ValidatorSlasher contract on the Ethereum main chain to slash a validator.",
+    "for removing a validator or the ValidatorSlasher contract on the Ethereum main chain to slash a validator.",
     type=str,
     required=True,
     callback=validate_address,
