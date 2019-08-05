@@ -218,7 +218,6 @@ class App:
     #
     def _initialize_db(self, db_path):
         db_url = SQLITE_URL_FORMAT.format(path=db_path)
-        db_path.parent.mkdir(parents=True, exist_ok=True)
         engine = create_engine(db_url)
         self.db = BlockDB(engine)
 
@@ -399,6 +398,12 @@ def _show_version(ctx, param, value):
         ctx.exit()
 
 
+def create_directory(ctx, param, value):
+    path = Path(value)
+    path.mkdir(parents=True, exist_ok=True)
+    return value
+
+
 @click.command()
 @click.option(
     "--rpc-uri",
@@ -420,6 +425,7 @@ def _show_version(ctx, param, value):
     default=default_report_dir,
     show_default=True,
     type=click.Path(file_okay=False, writable=True, resolve_path=True),
+    callback=create_directory,
     help="path to the directory in which misbehavior reports will be created",
 )
 @click.option(
@@ -428,6 +434,7 @@ def _show_version(ctx, param, value):
     default=default_db_dir,
     show_default=True,
     type=click.Path(file_okay=False, writable=True, resolve_path=True),
+    callback=create_directory,
     help="path to the directory in which the database and application state will be stored",
 )
 @click.option(
