@@ -15,7 +15,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK 1
 
 RUN apt-get update \
     && apt-get install -y apt-utils python3 python3-distutils python3-dev python3-venv git \
-    build-essential \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/tlbc-monitor
@@ -34,6 +34,9 @@ RUN /opt/tlbc-monitor/bin/pip install -c constraints.txt -r requirements.txt
 COPY . /tlbc-monitor
 
 RUN /opt/tlbc-monitor/bin/pip install -c constraints.txt .
+
+RUN mkdir -p /opt/tlbc-monitor/config
+RUN curl https://raw.githubusercontent.com/trustlines-protocol/blockchain/8acf3fb62d9e32e4c371aaf6753e603a6a30c3ac/config/trustlines-spec.json > /opt/tlbc-monitor/config/chain-spec.json
 
 
 
