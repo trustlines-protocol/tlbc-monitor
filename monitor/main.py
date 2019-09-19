@@ -207,9 +207,14 @@ class App:
             return
 
         with self.chain_spec_path.open("r") as f:
-            chain_spec = json.load(f)
+            try:
+                chain_spec = json.load(f)
+            except json.JSONDecodeError:
+                chain_spec_has_changed = True
+            else:
+                chain_spec_has_changed = chain_spec != self.original_chain_spec
 
-        if chain_spec != self.original_chain_spec:
+        if chain_spec_has_changed:
             self.logger.info("Chain spec file has changed.")
             self.stop()
 
