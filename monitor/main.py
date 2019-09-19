@@ -134,6 +134,7 @@ class App:
         offline_window_size,
         initial_block_resolver,
         upgrade_db=False,
+        watch_chain_spec=False,
     ):
         self.report_dir = report_dir
 
@@ -149,6 +150,10 @@ class App:
         self.offline_reporter = None
         self.equivocation_reporter = None
         self.initial_block_resolver = initial_block_resolver
+
+        self.chain_spec_path = chain_spec_path
+        self.original_chain_spec = None
+        self.watch_chain_spec = watch_chain_spec
 
         self._initialize_db(db_path)
         self._initialize_w3(rpc_uri)
@@ -193,6 +198,26 @@ class App:
         if number_of_new_blocks == 0:
             time.sleep(BLOCK_FETCH_INTERVAL)
 
+        # check at the end of the cycle so that we quit immediately when the chain spec has
+        # changed
+        self._check_chain_spec()
+
+    def _check_chain_spec(self) -> None:
+        if not self.watch_chain_spec:
+            return
+
+        with self.chain_spec_path.open("r") as f:
+            try:
+                chain_spec = json.load(f)
+            except json.JSONDecodeError:
+                chain_spec_has_changed = True
+            else:
+                chain_spec_has_changed = chain_spec != self.original_chain_spec
+
+        if chain_spec_has_changed:
+            self.logger.info("Chain spec file has changed.")
+            self.stop()
+
     def _update_epochs(self) -> None:
         new_epochs = self.epoch_fetcher.fetch_new_epochs()
         for epoch in new_epochs:
@@ -227,6 +252,8 @@ class App:
     def _initialize_primary_oracle(self, chain_spec_path: Path) -> None:
         with chain_spec_path.open("r") as f:
             chain_spec = json.load(f)
+            self.original_chain_spec = chain_spec
+
             validator_definition = chain_spec["engine"]["authorityRound"]["params"][
                 "validators"
             ]
@@ -420,6 +447,12 @@ def create_directory(ctx, param, value):
     help="path to the chain spec file of the Trustlines blockchain",
 )
 @click.option(
+    "--watch-chain-spec",
+    "-m",
+    help="Continuously watch for changes in the chain spec file and stop if there are any",
+    is_flag=True,
+)
+@click.option(
     "--report-dir",
     "-r",
     default=default_report_dir,
@@ -480,6 +513,7 @@ def main(
     sync_from,
     upgrade_db,
     version,
+    watch_chain_spec,
 ):
     initial_block_resolver = blocksel.make_blockresolver(sync_from)
     offline_window_size_in_steps = offline_window_size_in_seconds // STEP_DURATION
@@ -494,6 +528,7 @@ def main(
             offline_window_size=offline_window_size_in_steps,
             initial_block_resolver=initial_block_resolver,
             upgrade_db=upgrade_db,
+            watch_chain_spec=watch_chain_spec,
         )
 
         signal.signal(signal.SIGTERM, lambda _signum, _frame: app.stop())
