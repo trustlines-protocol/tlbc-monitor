@@ -76,7 +76,7 @@ When the monitor reported an equivocation by a malicious validator, it is
 possible to remove that validator from the validator set and slash their deposit on the Ethereum main chain.
 The information required to prove the equivocation can be found in the created report file
 located at the directory defined with `--report-dir` (default `./reports`). The file is named
- `equivocation_reports_for_proposer_0x...` followed by the address of the
+`equivocation_reports_for_proposer_0x...` followed by the address of the
 malicious validator. There is one such file per validator who has equivocated.
 Multiple violations by the same address will be attached to the end of the first
 report in the same file. It does not matter which proof is chosen to slash / remove a validator.
@@ -87,26 +87,33 @@ To remove a validator from the validator set on the Trustlines chain, one needs 
 To slash the deposit of the validator on the main chain, one needs to send the proof to the
 `reportMaliciousValidator` function of the ValidatorSlasher contract on the Ethereum main chain.
 
-
 The `report-validator` tool can be used to simplify the report process. An
 example call would look like this:
 
 ```sh
 docker --rm --net="host" --volume $(pwd)/reports:/reports trustlines/report-validator report-via-file \
   --contract-address 0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c \
-  --jsonrpc http://127.0.0.1:8545 \
   --equivocation-report /reports/equivocation_reports_for_proposer_0x505ab22ef8f3ae874dec92e60665ca490fb68192
 ```
 
-In the above example, `./reports` is the directory containing the reports of equivocating
-validator with address `0x505ab22ef8f3ae874dec92e60665ca490fb68192`,
-the address of the reporting contract is `0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c`.
-It assumes a running _Parity_ node on `http://127.0.0.1:8545` syncing the desired chain:
-Ethereum main chain for slashing or Trustlines chain for removing a validator.
-The parity node is expected to have an unlocked account to sign the transaction.
-The URL of the parity node can otherwise be specified with the `--jsonrpc` option.
-`--keystore` can be specified to sign the transaction with a local key
-instead of relying on an unlocked account.
+In the above example, `./reports` is the directory containing the reports of
+equivocating validators, including one for address
+`0x505ab22ef8f3ae874dec92e60665ca490fb68192`. The contract where to report is
+deployed at address `0x9Cc30A6088DB80F8a3B2b4d2f491AbC98559C59c`. The example
+assumes a running _Parity_ node syncing the desired chain: Ethereum main chain
+for slashing or Trustlines chain for removing a validator. The _Parity_ node is
+expected to have an unlocked account to sign the transaction. Alternatively
+the option `--keystore` can be specified to sign the transaction with a local
+key. The URL of the node can be specified with the `--jsonrpc` option. Per
+default it assumes that the JSON RPC endpoint is available on your local
+machine at `http://127.0.0.1:8545`. Therefore the above example gets bound to
+`--net="host"`. In case of a setup with the [quickstart
+script](https://github.com/trustlines-protocol/blockchain#setup-with-the-quickstart-script),
+the endpoint is not available to `localhost` for security reasons. Rather you
+need to directly address the container. This can be done by connecting the
+`report-validator` tool to the same network and use the name of the _Parity_
+container. This would require to set `--net="quickstart_mainnet"` for the
+_Docker_ container and point the tool to `--jsonrpc http://mainnet.node:8545`.
 
 Furthermore there are is the possibility to adjust the default transaction
 options by using `--gas`, `--gas-price`, `--nounce` and `--auto-nounce`.
@@ -114,7 +121,8 @@ Checkout the `--help` for further information.
 
 Please make sure to use the currently active validator set contract address,
 which can be found within the [chain
-specification](https://github.com/trustlines-protocol/blockchain/blob/836e456d5ed8bcb576986e1c4cfe60603d14dcd0/config/trustlines-spec.json#L7).
+specification](https://github.com/trustlines-protocol/blockchain/blob/master/config/tlbc-spec.json)
+under the section `valdiators`.
 
 It is also possible to enter the equivocation proof information manually in case
 no report file is available. It only differs in the way of providing these
