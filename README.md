@@ -106,14 +106,15 @@ expected to have an unlocked account to sign the transaction. Alternatively
 the option `--keystore` can be specified to sign the transaction with a local
 key. The URL of the node can be specified with the `--jsonrpc` option. Per
 default it assumes that the JSON RPC endpoint is available on your local
-machine at `http://127.0.0.1:8545`. Therefore the above example gets bound to
+machine at `http://127.0.0.1:8545`. Therefore, the above example is bound to
 `--net="host"`. In case of a setup with the [quickstart
 script](https://github.com/trustlines-protocol/blockchain#setup-with-the-quickstart-script),
 the endpoint is not available to `localhost` for security reasons. Rather you
 need to directly address the container. This can be done by connecting the
 `report-validator` tool to the same network and use the name of the _Parity_
-container. This would require to set `--net="quickstart_mainnet"` for the
-_Docker_ container and point the tool to `--jsonrpc http://mainnet.node:8545`.
+container. E.g., for slashing, this would require to set
+`--net="quickstart_mainnet"` for the _Docker_ container and point the tool to
+`--jsonrpc http://mainnet.node:8545`.
 
 Furthermore there are is the possibility to adjust the default transaction
 options by using `--gas`, `--gas-price`, `--nounce` and `--auto-nounce`.
@@ -122,7 +123,7 @@ Checkout the `--help` for further information.
 Please make sure to use the currently active validator set contract address,
 which can be found within the [chain
 specification](https://github.com/trustlines-protocol/blockchain/blob/master/config/tlbc-spec.json)
-under the section `valdiators`.
+under the section `validators`.
 
 It is also possible to enter the equivocation proof information manually in case
 no report file is available. It only differs in the way of providing these
