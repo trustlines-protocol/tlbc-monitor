@@ -13,6 +13,14 @@ executors:
 # define some common commands
 # see https://circleci.com/docs/2.0/configuration-reference/#commands-requires-version-21
 commands:
+  create-venv:
+    steps:
+      - run:
+          name: Create venv
+          command: |
+            python3 -m venv venv
+            venv/bin/pip install -c constraints.txt pip wheel setuptools
+
   config-path:
     description: "set environment variables and change PATH"
     steps:
@@ -39,12 +47,6 @@ jobs:
       - install-system-deps
       - checkout
       - config-path
-      - run:
-          name: Create python venv
-          command: |
-            python3 -m venv venv
-            pip install -U pip wheel setuptools
-
       - persist_to_workspace:
           root: "~"
           paths:
@@ -59,13 +61,14 @@ jobs:
           at: '~'
       - config-path
       - restore_cache:
-          key: flake8-venv-{{ checksum "constraints.txt" }}
+          key: flake8-venv-v2-{{ checksum "constraints.txt" }}
+      - create-venv
       - run:
           name: Install flake8
           command: |
             pip install flake8 -c constraints.txt
       - save_cache:
-          key: flake8-venv-{{ checksum "constraints.txt" }}
+          key: flake8-venv-v2-{{ checksum "constraints.txt" }}
           paths:
             - venv
       - run:
@@ -82,14 +85,14 @@ jobs:
       - config-path
 
       - restore_cache:
-          key: venv-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
-
+          key: venv-v2-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+      - create-venv
       - run:
           name: Install requirements
           command: |
             pip install -c constraints.txt -r requirements.txt
       - save_cache:
-          key: venv-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+          key: venv-v2-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
           paths:
             - venv
       - run:
