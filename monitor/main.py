@@ -17,7 +17,7 @@ from eth_utils import encode_hex
 from eth_keys import keys
 
 import monitor.db as db
-from monitor import blocksel
+from monitor import blocksel, node_status
 from monitor.db import BlockDB
 from monitor.block_fetcher import BlockFetcher, format_block, BlockFetcherStateV1
 from monitor import offline_reporter
@@ -157,6 +157,7 @@ class App:
 
         self._initialize_db(db_path)
         self._initialize_w3(rpc_uri)
+        self.wait_for_node_fully_synced()
         self._initialize_primary_oracle(chain_spec_path)
 
         app_state = self._load_app_state()
@@ -166,6 +167,14 @@ class App:
         self._initialize_reporters(app_state, skip_rate, offline_window_size)
         self._register_reporter_callbacks()
         self._running = False
+
+    def wait_for_node_fully_synced(self):
+        def is_synced(node_status):
+            syncmsg = "still syncing" if node_status.is_syncing else "fully synced"
+            self.logger.info(f"node {syncmsg}:{node_status}")
+            return not node_status.is_syncing
+
+        node_status.wait_for_node_status(self.w3, is_synced)
 
     def run(self) -> None:
         self._running = True

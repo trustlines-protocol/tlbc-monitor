@@ -4,6 +4,8 @@ structlog
 web3
 sqlalchemy
 contract-deploy-tools
+attrs
+tenacity
 
 # --- development dependencies, i.e. dependencies not needed for running
 pytest
