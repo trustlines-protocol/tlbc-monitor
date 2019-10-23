@@ -13,6 +13,8 @@ setup(
         "web3",
         "sqlalchemy",
         "contract-deploy-tools",
+        "attrs",
+        "tenacity",
     ],
     extras_require={"test": ["eth-tester[py-evm]", "pytest"]},
     entry_points={
