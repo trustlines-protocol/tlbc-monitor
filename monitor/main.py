@@ -36,6 +36,7 @@ from monitor.validators import (
     get_validator_definition_ranges,
     get_static_epochs,
 )
+from monitor.web3_retry_middleware import http_retry_request_middleware_endlessly
 
 import click
 
@@ -257,6 +258,16 @@ class App:
 
     def _initialize_w3(self, rpc_uri):
         self.w3 = Web3(HTTPProvider(rpc_uri))
+
+        # Inject custom middleware to improve the handling of connection
+        # problems with the RPC endpoint.
+        if "http_retry_request" in self.w3.middleware_onion:
+            self.w3.middleware_onion.replace(
+                "http_retry_request", http_retry_request_middleware_endlessly
+            )
+
+        else:
+            self.w3.middleware_onion.add(http_retry_request_middleware_endlessly)
 
     def _initialize_primary_oracle(self, chain_spec_path: Path) -> None:
         with chain_spec_path.open("r") as f:
