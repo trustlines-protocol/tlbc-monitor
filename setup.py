@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
     name="tlbc-monitor",
@@ -14,7 +14,6 @@ setup(
         "sqlalchemy",
         "contract-deploy-tools",
         "attrs",
-        "tenacity",
     ],
     extras_require={"test": ["eth-tester[py-evm]", "pytest"]},
     entry_points={
