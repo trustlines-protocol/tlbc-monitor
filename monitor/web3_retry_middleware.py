@@ -2,7 +2,6 @@ from time import sleep
 
 import structlog
 from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
-from web3.middleware.exception_retry_request import check_if_retry_on_failure
 
 logger = structlog.get_logger("monitor.http_retry_request_middleware_endlessly")
 
@@ -11,9 +10,6 @@ _RETRY_SLEEP_DURATION = 5  # seconds
 
 def exception_retry_middleware_endlessly(make_request, web3, errors):
     def middleware(method, params):
-        if not check_if_retry_on_failure(method):
-            return make_request(method, params)
-
         while True:
             try:
                 return make_request(method, params)
