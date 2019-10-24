@@ -1,9 +1,8 @@
 import logging
+import time
 from typing import Dict, List, Optional
 
 import attr
-import time
-import tenacity
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +79,8 @@ def get_node_status(w3):
 
 
 def wait_for_node_status(w3, predicate, sleep_time=30.0):
-    retry = tenacity.retry(
-        wait=tenacity.wait_exponential(multiplier=1, min=5, max=120),
-        before_sleep=tenacity.before_sleep_log(logger, logging.WARN),
-    )
     while True:
-        node_status = retry(get_node_status)(w3)
+        node_status = get_node_status(w3)
         if predicate(node_status):
             return node_status
         time.sleep(sleep_time)
