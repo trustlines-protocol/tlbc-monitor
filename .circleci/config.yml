@@ -211,8 +211,6 @@ jobs:
 
   build-docker-image:
     executor: ubuntu-builder
-    environment:
-      LOCAL_IMAGE: tlbc-monitor
 
     working_directory: ~/repo
     steps:
@@ -221,43 +219,17 @@ jobs:
       - run:
           name: Build docker image
           command: |
-            docker build . -t $LOCAL_IMAGE
-      - run:
-          name: Save docker image
-          command: |
-            mkdir -p ~/images
-            docker save --output ~/images/$LOCAL_IMAGE.tar $LOCAL_IMAGE
-      - persist_to_workspace:
-          root: "~"
-          paths:
-            - images
-
-  build-report-docker-image:
-    executor: ubuntu-builder
-    environment:
-      LOCAL_IMAGE: report-validator
-      LOCAL_MONITOR_IMAGE: tlbc-monitor
-    working_directory: ~/repo
-    steps:
-      - setup_remote_docker
-      - checkout
-      - attach_workspace:
-          at: '~'
-      - run:
-          name: Load monitor docker image
-          command: |
-            du -hc ~/images/*
-            docker load --input ~/images/$LOCAL_MONITOR_IMAGE.tar
-            docker image ls
+            docker build . -t tlbc-monitor
       - run:
           name: Build report docker image
           command: |
-            docker build . -t $LOCAL_IMAGE -f Dockerfile.report-validator
+            docker build . -t report-validator -f Dockerfile.report-validator
       - run:
-          name: Save report docker image
+          name: Save docker images
           command: |
             mkdir -p ~/images
-            docker save --output ~/images/$LOCAL_IMAGE.tar $LOCAL_IMAGE
+            docker save --output ~/images/tlbc-monitor.tar tlbc-monitor
+            docker save --output ~/images/report-validator.tar report-validator
       - persist_to_workspace:
           root: "~"
           paths:
@@ -367,11 +339,6 @@ workflows:
       - build-docker-image:
           filters:
             <<: *tagged-filter
-      - build-report-docker-image:
-          filters:
-            <<: *tagged-filter
-          requires:
-            - build-docker-image
       - approve-release:
           type: approval
           filters:
@@ -419,6 +386,6 @@ workflows:
             - run-pytest
             - run-mypy
             - install
-            - build-report-docker-image
+            - build-docker-image
           context: docker-credentials
       - end2end
