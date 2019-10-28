@@ -336,6 +336,9 @@ workflows:
             <<: *tagged-filter
           requires:
             - install
+      - end2end:
+          filters:
+            <<: *tagged-filter
       - build-docker-image:
           filters:
             <<: *tagged-filter
@@ -361,6 +364,7 @@ workflows:
             - run-mypy
             - install
             - build-docker-image
+            - end2end
           context: docker-credentials
       - deploy-docker-release-image:
           filters:
@@ -376,6 +380,7 @@ workflows:
             - install
             - build-docker-image
             - approve-release
+            - end2end
           context: docker-credentials
       - deploy-report-docker-image:
           filters:
@@ -387,5 +392,5 @@ workflows:
             - run-mypy
             - install
             - build-docker-image
+            - end2end
           context: docker-credentials
-      - end2end
