@@ -24,10 +24,17 @@ commands:
   config-path:
     description: "set environment variables and change PATH"
     steps:
-    - run:
-        name: Configuring PATH
-        command: |
-          echo 'export PATH=~/repo/venv/bin:${PATH}' >> ${BASH_ENV}
+      - run:
+          name: Configuring PATH
+          command: |
+            echo 'export PATH=~/repo/venv/bin:${PATH}' >> ${BASH_ENV}
+      - run:
+          name: set DOCKER_ORG
+          command: |
+            echo ': \"${DOCKER_ORG:=trustlines}\"' >> ${BASH_ENV}
+
+        # this allows us to set DOCKER_ORG from circleci when
+        # building in a fork. makes testing easier.
 
   install-system-deps:
     steps:
@@ -43,102 +50,49 @@ commands:
       - setup_remote_docker
       - attach_workspace:
           at: '~'
-      - run:
-          name: Load docker image
-          command: |
-            du -hc ~/images/*
-            docker load --input ~/images/$LOCAL_IMAGE.tar
-            docker image ls
-      - run:
-          name: Login to dockerhub
-          command: |
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
-      - run:
-          name: Upload docker images
-          command: |
-            VERSION=$(docker run --rm $LOCAL_IMAGE --version | tr '+' '_')
-            CLEAN_BRANCH_NAME=${CIRCLE_BRANCH##*/}
-            echo "Tagging with $DOCKER_REPO:$VERSION and $DOCKER_REPO:$CLEAN_BRANCH_NAME"
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:$VERSION
-            docker push $DOCKER_REPO:$VERSION
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:$CLEAN_BRANCH_NAME
-            docker push $DOCKER_REPO:$CLEAN_BRANCH_NAME
-
-  upload-report-docker-image:
-    description: "Deploy report docker image"
-    steps:
-      - setup_remote_docker
-      - attach_workspace:
-          at: '~'
-      - run:
-          name: Load docker image
-          command: |
-            du -hc ~/images/*
-            docker load --input ~/images/$LOCAL_IMAGE.tar
-            docker image ls
-      - run:
-          name: Login to dockerhub
-          command: |
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
-      - run:
-          name: Upload docker images
-          command: |
-            CLEAN_BRANCH_NAME=${CIRCLE_BRANCH##*/}
-            echo "Tagging with $DOCKER_REPO:$CIRCLE_BUILD_NUM, $DOCKER_REPO:$CLEAN_BRANCH_NAME, and $DOCKER_REPO:latest"
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:$CIRCLE_BUILD_NUM
-            docker push $DOCKER_REPO:$CIRCLE_BUILD_NUM
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:$CLEAN_BRANCH_NAME
-            docker push $DOCKER_REPO:$CLEAN_BRANCH_NAME
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:latest
-            docker push $DOCKER_REPO:latest
-
-jobs:
-  # install python and create an empty python virtualenv
-  prepare-system:
-    executor: ubuntu-builder
-    working_directory: ~/repo
-
-    steps:
-      - install-system-deps
       - checkout
       - config-path
-      - persist_to_workspace:
-          root: "~"
-          paths:
-            - repo
-  run-flake8:
-    executor: ubuntu-builder
-    working_directory: ~/repo
+      - run:
+          name: Load docker image
+          command: |
+            du -hc ~/images/*
+            docker load --input ~/images/tlbc-monitor.tar
+            docker load --input ~/images/report-validator.tar
+            docker image ls
+      - run:
+          name: Login to dockerhub
+          command: |
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USER" --password-stdin
 
-    steps:
-      - install-system-deps
-      - attach_workspace:
-          at: '~'
-      - config-path
-      - restore_cache:
-          key: flake8-venv-v2-{{ checksum "constraints.txt" }}
-      - create-venv
       - run:
-          name: Install flake8
+          name: Upload docker images
           command: |
-            pip install flake8 -c constraints.txt
-      - save_cache:
-          key: flake8-venv-v2-{{ checksum "constraints.txt" }}
-          paths:
-            - venv
-      - run:
-          name: Run flake8
-          command: |
-            flake8 setup.py monitor tests e2e_tests report_validator
+            git fetch --force origin release:remotes/origin/release
+            VERSION=$(docker run --rm tlbc-monitor --version | tr '+' '_')
+            if [[ ( "$(git rev-parse HEAD)" = "$(git rev-parse origin/release)" ) && ( "$CIRCLE_TAG" =~ [0-9]+\.[0-9]+\.[0-9]+) ]];
+            then
+                suffix=""
+                versions=(release $VERSION)
+            else
+                suffix="-next"
+                versions=($CIRCLE_BRANCH $CIRCLE_BRANCH$CIRCLE_BUILD_NUM)
+            fi
+
+            set -x
+            for image in tlbc-monitor report-validator; do
+                for v in "${versions[@]}"; do
+                    docker tag $image $DOCKER_ORG/$image$suffix:$v
+                    docker push $DOCKER_ORG/$image$suffix:$v
+                done
+            done
+jobs:
   install:
     executor: ubuntu-builder
     working_directory: ~/repo
     steps:
       - install-system-deps
-      - attach_workspace:
-          at: '~'
+      - checkout
       - config-path
-
       - restore_cache:
           key: venv-v2-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
       - create-venv
@@ -162,6 +116,21 @@ jobs:
           root: "~"
           paths:
             - repo
+
+  run-flake8:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+
+    steps:
+      - install-system-deps
+      - attach_workspace:
+          at: '~'
+      - config-path
+      - run:
+          name: Run flake8
+          command: |
+            flake8 setup.py monitor tests e2e_tests report_validator
+
   run-black:
     executor: ubuntu-builder
     working_directory: ~/repo
@@ -237,54 +206,15 @@ jobs:
 
   deploy-docker-image:
     executor: ubuntu-builder
-    environment:
-      LOCAL_IMAGE: tlbc-monitor
     working_directory: ~/repo
     steps:
-      - run:
-          name: set DOCKER_REPO
-          command: |
-            echo ': \"${DOCKER_REPO:=trustlines/tlbc-monitor-next}\"' >> ${BASH_ENV}
-
-          # this allows us to set DOCKER_REPO from circleci when building in a
-          # fork. makes testing easier.
       - upload-docker-image
 
   deploy-docker-release-image:
     executor: ubuntu-builder
-    environment:
-      LOCAL_IMAGE: tlbc-monitor
     working_directory: ~/repo
     steps:
-      - run:
-          name: set DOCKER_REPO
-          command: |
-            echo ': \"${DOCKER_REPO:=trustlines/tlbc-monitor}\"' >> ${BASH_ENV}
-
-          # this allows us to set DOCKER_REPO from circleci when building in a
-          # fork. makes testing easier.
       - upload-docker-image
-      - run:
-          name: Upload latest image
-          command: |
-            echo "Tagging with $DOCKER_REPO:latest"
-            docker tag $LOCAL_IMAGE $DOCKER_REPO:latest
-            docker push $DOCKER_REPO:latest
-
-  deploy-report-docker-image:
-    executor: ubuntu-builder
-    environment:
-      LOCAL_IMAGE: report-validator
-    working_directory: ~/repo
-    steps:
-      - run:
-          name: set DOCKER_REPO
-          command: |
-            echo ': \"${DOCKER_REPO:=trustlines/report-validator}\"' >> ${BASH_ENV}
-
-          # this allows us to set DOCKER_REPO from circleci when building in a
-          # fork. makes testing easier.
-      - upload-report-docker-image
 
   end2end:
     machine:
@@ -308,19 +238,14 @@ workflows:
   version: 2
   default:
     jobs:
-      - prepare-system:
+      - install:
           filters:
             <<: *tagged-filter
       - run-flake8:
           filters:
             <<: *tagged-filter
           requires:
-            - prepare-system
-      - install:
-          filters:
-            <<: *tagged-filter
-          requires:
-            - prepare-system
+            - install
       - run-pytest:
           filters:
             <<: *tagged-filter
@@ -336,20 +261,15 @@ workflows:
             <<: *tagged-filter
           requires:
             - install
+      - end2end:
+          filters:
+            <<: *tagged-filter
       - build-docker-image:
           filters:
             <<: *tagged-filter
-      - approve-release:
-          type: approval
-          filters:
-            branches:
-              only:
-                - release
-          requires:
-            - build-docker-image
+
       - deploy-docker-image:
           filters:
-            <<: *tagged-filter
             branches:
               only:
                 - master
@@ -361,31 +281,29 @@ workflows:
             - run-mypy
             - install
             - build-docker-image
+            - end2end
           context: docker-credentials
+
+      - approve-release:
+          type: approval
+          filters:
+            <<: *tagged-filter
+            branches:
+              ignore: /.*/
+          requires:
+            - run-flake8
+            - run-black
+            - run-pytest
+            - run-mypy
+            - install
+            - build-docker-image
+            - end2end
+
       - deploy-docker-release-image:
           filters:
             <<: *tagged-filter
             branches:
-              only:
-                - release
+              ignore: /.*/
           requires:
-            - run-flake8
-            - run-black
-            - run-pytest
-            - run-mypy
-            - install
-            - build-docker-image
             - approve-release
-          context: docker-credentials
-      - deploy-report-docker-image:
-          filters:
-            <<: *tagged-filter
-          requires:
-            - run-flake8
-            - run-black
-            - run-pytest
-            - run-mypy
-            - install
-            - build-docker-image
-          context: docker-credentials
-      - end2end
+          context: docker-release-credentials
