@@ -2,7 +2,7 @@
 
 ## Release Checklist
 
-0. Prerequsisite: The master branch contains the version to be
+0. Prerequisite: The `master` branch contains the version to be
    released.
 1. Open and merge a PR `master` -> `pre-release` (no review
    required). This will built the docker images for the monitor and
