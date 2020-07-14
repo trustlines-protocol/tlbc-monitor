@@ -35,7 +35,7 @@ def get_canonicalized_block(block_dict):
 
 
 def get_proposer(canonicalized_block):
-    """Extract the signer from a block as retrieved from Parity via its JSON RPC interface."""
+    """Extract the signer from a block as retrieved from client via its JSON RPC interface."""
     if canonicalized_block.signature == EMPTY_SIGNATURE:
         return EMPTY_ADDRESS
 

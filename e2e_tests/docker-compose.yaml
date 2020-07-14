@@ -15,10 +15,10 @@ services:
     container_name: validator_one
     build:
       context: .
-      dockerfile: Dockerfile_parity
+      dockerfile: Dockerfile_openethereum
     volumes:
-      - ./validator_one/keys:/home/parity/.local/share/io.parity.ethereum/keys
-      - ./validator_one/network:/home/parity/.local/share/io.parity.ethereum/network
+      - ./validator_one/keys:/home/openethereum/.local/share/io.parity.ethereum/keys
+      - ./validator_one/network:/home/openethereum/.local/share/io.parity.ethereum/network
     command: >
       --engine-signer 0x46ae357ba2f459cb04697837397ec90b47e48727
       --jsonrpc-interface all
@@ -27,10 +27,10 @@ services:
     container_name: validator_two
     build:
       context: .
-      dockerfile: Dockerfile_parity
+      dockerfile: Dockerfile_openethereum
     volumes:
-      - ./validator_two/keys:/home/parity/.local/share/io.parity.ethereum/keys
-      - ./validator_two/network:/home/parity/.local/share/io.parity.ethereum/network
+      - ./validator_two/keys:/home/openethereum/.local/share/io.parity.ethereum/keys
+      - ./validator_two/network:/home/openethereum/.local/share/io.parity.ethereum/network
     command: --engine-signer 0x260ea46e50c7111f08f7e8c863235ebcf29bb1a1
 
   monitor:
