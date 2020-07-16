@@ -39,13 +39,10 @@ Options:
   -m, --watch-chain-spec          Continuously watch for changes in the chain
                                   spec file and stop if there are any
   -r, --report-dir DIRECTORY      path to the directory in which misbehavior
-                                  reports will be created  [default:
-                                  /home/thore/projects/brainbot-
-                                  projects/repositories/tlbc-monitor/reports]
+                                  reports will be created  [default: ./reports]
   -d, --db-dir DIRECTORY          path to the directory in which the database
                                   and application state will be stored
-                                  [default: /home/thore/projects/brainbot-
-                                  projects/repositories/tlbc-monitor/state]
+                                  [default: ./state]
   -o, --skip-rate FLOAT           maximum rate of assigned steps a validator
                                   can skip without being reported as offline
                                   [default: 0.5]
