@@ -4,7 +4,8 @@ setup(
     name="tlbc-monitor",
     setup_requires=["setuptools_scm"],
     use_scm_version=True,
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     package_data={"monitor": ["validator_contract_abi.json"]},
     install_requires=[
         "click",
