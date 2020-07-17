@@ -72,7 +72,9 @@ def get_node_status_geth(w3):
 
 
 def get_node_status(w3):
-    if w3.clientVersion.startswith("Parity"):
+    if w3.clientVersion.startswith("Parity") or w3.clientVersion.startswith(
+        "OpenEthereum"
+    ):
         return get_node_status_parity(w3)
     else:
         return get_node_status_geth(w3)

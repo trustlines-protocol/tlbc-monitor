@@ -126,7 +126,7 @@ class BlockDB:
                 session.commit()
         except IntegrityError:
             raise AlreadyExists(
-                f"At least one block from the given branch already exists"
+                "At least one block from the given branch already exists"
             )
 
     def is_empty(self):

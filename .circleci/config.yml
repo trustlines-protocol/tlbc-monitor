@@ -129,7 +129,7 @@ jobs:
       - run:
           name: Run flake8
           command: |
-            flake8 setup.py monitor tests e2e_tests report_validator
+            flake8 setup.py src tests e2e_tests
 
   run-black:
     executor: ubuntu-builder
@@ -142,7 +142,7 @@ jobs:
       - run:
           name: Run black
           command: |
-            black --check setup.py monitor tests e2e_tests report_validator
+            black --check setup.py src tests e2e_tests
 
   run-mypy:
     executor: ubuntu-builder
@@ -155,7 +155,7 @@ jobs:
       - run:
           name: Run mypy
           command: |
-            mypy --ignore-missing-imports monitor tests
+            mypy --ignore-missing-imports src tests
 
   run-pytest:
     executor: ubuntu-builder

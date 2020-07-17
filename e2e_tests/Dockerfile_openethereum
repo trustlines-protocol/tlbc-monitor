@@ -1,0 +1,3 @@
+FROM openethereum/openethereum:v3.0.1
+
+COPY --chown=openethereum ./configuration/* /home/openethereum/.local/share/io.parity.ethereum/
