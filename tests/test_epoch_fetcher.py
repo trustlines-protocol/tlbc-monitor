@@ -99,9 +99,9 @@ def test_get_static_epochs():
 def initialize_scenario(
     validator_set_contract: Contract, transition_heights: Sequence[int] = None
 ) -> Tuple[List[ValidatorDefinitionRange], List[Contract]]:
-    _transition_heights: List[Union[int, None]] = list(
-        transition_heights
-    ) if transition_heights is not None else []
+    _transition_heights: List[Union[int, None]] = (
+        list(transition_heights) if transition_heights is not None else []
+    )
 
     w3 = validator_set_contract.web3
 

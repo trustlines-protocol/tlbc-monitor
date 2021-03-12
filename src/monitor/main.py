@@ -56,8 +56,8 @@ GRACE_PERIOD = 10  # number of blocks that have to pass before a missed block is
 DEFAULT_OFFLINE_WINDOW_SIZE_IN_SECONDS = 24 * 60 * 60
 DEFAULT_ALLOWED_SKIP_RATE = 0.5
 MAX_REORG_DEPTH = (
-    1000
-)  # blocks at this depth in the chain are assumed to not be replaced
+    1000  # blocks at this depth in the chain are assumed to not be replaced
+)
 
 BLOCK_HASH_AND_TIMESTAMP_TEMPLATE = "{block_hash} ({block_timestamp})"
 EQUIVOCATION_REPORT_TEMPLATE = """\

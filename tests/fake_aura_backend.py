@@ -1,3 +1,5 @@
+import functools
+
 from eth_tester import PyEVMBackend
 from eth_tester.exceptions import ValidationError
 from eth_tester.normalization import DefaultNormalizer
@@ -15,7 +17,7 @@ from eth_utils.toolz import identity
 from web3.datastructures import AttributeDict
 from web3.middleware import construct_formatting_middleware
 from web3.providers.eth_tester.middleware import block_key_remapper
-from web3._utils.formatters import apply_formatter_if
+from eth_utils import apply_formatter_if
 
 from monitor.blocks import calculate_block_signature
 
@@ -140,7 +142,11 @@ def fix_web3_keys(block):
 
 key_renaming_middleware = construct_formatting_middleware(
     result_formatters={
-        "eth_getBlockByHash": apply_formatter_if(is_dict, fix_web3_keys),
-        "eth_getBlockByNumber": apply_formatter_if(is_dict, fix_web3_keys),
+        "eth_getBlockByHash": functools.partial(
+            apply_formatter_if, is_dict, fix_web3_keys
+        ),
+        "eth_getBlockByNumber": functools.partial(
+            apply_formatter_if, is_dict, fix_web3_keys
+        ),
     }
 )

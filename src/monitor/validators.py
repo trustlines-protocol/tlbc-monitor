@@ -82,7 +82,7 @@ class ValidatorDefinitionRange(NamedTuple):
 
 
 def get_validator_definition_ranges(
-    validator_definition: Dict
+    validator_definition: Dict,
 ) -> Sequence[ValidatorDefinitionRange]:
     validate_validator_definition(validator_definition)
 
@@ -131,7 +131,7 @@ def get_validator_definition_ranges(
 
 
 def validate_validator_definition_order(
-    validator_definition_ranges: Sequence[ValidatorDefinitionRange]
+    validator_definition_ranges: Sequence[ValidatorDefinitionRange],
 ) -> None:
     for current_range, next_range in sliding_window(2, validator_definition_ranges):
         if current_range.leave_height != next_range.enter_height:
@@ -145,7 +145,7 @@ class Epoch(NamedTuple):
 
 
 def get_static_epochs(
-    validator_definition_ranges: Sequence[ValidatorDefinitionRange]
+    validator_definition_ranges: Sequence[ValidatorDefinitionRange],
 ) -> Sequence[Epoch]:
     validate_validator_definition_order(validator_definition_ranges)
     epochs = []
