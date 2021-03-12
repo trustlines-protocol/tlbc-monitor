@@ -141,11 +141,12 @@ def fix_web3_keys(block):
 
 
 key_renaming_middleware = construct_formatting_middleware(
+    # Mypy expects the string to have type RPCEndpoint, which cannot be found
     result_formatters={
-        "eth_getBlockByHash": functools.partial(
+        "eth_getBlockByHash": functools.partial(  # type: ignore
             apply_formatter_if, is_dict, fix_web3_keys
         ),
-        "eth_getBlockByNumber": functools.partial(
+        "eth_getBlockByNumber": functools.partial(  # type: ignore
             apply_formatter_if, is_dict, fix_web3_keys
         ),
     }

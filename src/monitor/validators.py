@@ -2,9 +2,10 @@ import bisect
 from collections.abc import Mapping
 from itertools import chain, takewhile, dropwhile
 import json
-from typing import cast, NamedTuple, List, Dict, Optional, Sequence
+from typing import cast, NamedTuple, List, Dict, Optional, Sequence, Union
 import os
 
+from eth_typing import ChecksumAddress
 from eth_utils import is_hex_address, decode_hex, to_canonical_address
 from eth_utils.toolz import sliding_window, last
 
@@ -77,7 +78,7 @@ class ValidatorDefinitionRange(NamedTuple):
     enter_height: int
     leave_height: Optional[int]
     is_contract: bool
-    contract_address: Optional[bytes] = None
+    contract_address: Union[Optional[bytes], ChecksumAddress] = None
     validators: Optional[List[bytes]] = None
 
 
@@ -275,8 +276,9 @@ class ContractEpochFetcher:
             )
 
         self._w3 = w3
+        # it seems web3 expects `None` type for contract address wrongfully
         self._contract = w3.eth.contract(
-            address=validator_definition_range.contract_address,
+            address=validator_definition_range.contract_address,  # type: ignore
             abi=VALIDATOR_CONTRACT_ABI,
         )
 
