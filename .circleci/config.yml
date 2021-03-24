@@ -8,7 +8,8 @@ templates:
 executors:
   ubuntu-builder:
     docker:
-      - image: circleci/buildpack-deps:bionic
+      - image: trustlines/builder:master61
+    working_directory: ~/repo
 
 # define some common commands
 # see https://circleci.com/docs/2.0/configuration-reference/#commands-requires-version-21
@@ -18,8 +19,8 @@ commands:
       - run:
           name: Create venv
           command: |
-            python3 -m venv venv
-            venv/bin/pip install -c constraints.txt pip wheel setuptools
+            python3.8 -m venv venv
+            venv/bin/pip install -U pip wheel setuptools
 
   config-path:
     description: "set environment variables and change PATH"
@@ -90,18 +91,17 @@ jobs:
     executor: ubuntu-builder
     working_directory: ~/repo
     steps:
-      - install-system-deps
       - checkout
       - config-path
       - restore_cache:
-          key: venv-v2-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+          key: venv-py38-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
       - create-venv
       - run:
           name: Install requirements
           command: |
             pip install -c constraints.txt -r requirements.txt
       - save_cache:
-          key: venv-v2-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
+          key: venv-py38-{{ checksum "constraints.txt" }}-{{ checksum "requirements.txt" }}
           paths:
             - venv
       - run:
@@ -116,6 +116,19 @@ jobs:
           root: "~"
           paths:
             - repo
+
+  python-39-compatibility:
+    executor: ubuntu-builder
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - config-path
+      - create-venv
+      - run:
+          name: Run tox for python 39
+          command: |
+            pip install -c constraints.txt tox
+            tox -e py39
 
   run-flake8:
     executor: ubuntu-builder
@@ -239,6 +252,9 @@ workflows:
   default:
     jobs:
       - install:
+          filters:
+            <<: *tagged-filter
+      - python-39-compatibility:
           filters:
             <<: *tagged-filter
       - run-flake8:

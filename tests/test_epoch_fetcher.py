@@ -1,6 +1,6 @@
 import json
 import random
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union, Type
 import os
 
 import pytest
@@ -19,6 +19,7 @@ from monitor.validators import (
     EpochFetcher,
     get_static_epochs,
 )
+from web3.types import TxReceipt
 
 
 @pytest.fixture(autouse=True)
@@ -98,20 +99,23 @@ def test_get_static_epochs():
 
 def initialize_scenario(
     validator_set_contract: Contract, transition_heights: Sequence[int] = None
-) -> Tuple[List[ValidatorDefinitionRange], List[Contract]]:
-    _transition_heights: List[Union[int, None]] = list(
-        transition_heights
-    ) if transition_heights is not None else []
+) -> Tuple[List[ValidatorDefinitionRange], List[Union[Type[Contract], Contract]]]:
+    _transition_heights: List[Union[int, None]] = (
+        list(transition_heights) if transition_heights is not None else []
+    )
 
     w3 = validator_set_contract.web3
 
     validator_definition_ranges = []
-    contracts: List[Contract] = []
+    contracts: List[Union[Type[Contract], Contract]] = []
     for enter_height, leave_height in sliding_window(2, _transition_heights + [None]):
         deployment_tx_hash = validator_set_contract.constructor().transact()
-        deployment_receipt = w3.eth.waitForTransactionReceipt(deployment_tx_hash)
+        deployment_receipt: TxReceipt = w3.eth.waitForTransactionReceipt(
+            deployment_tx_hash
+        )
         contract = w3.eth.contract(
-            address=deployment_receipt.contractAddress, abi=validator_set_contract.abi
+            address=deployment_receipt["contractAddress"],
+            abi=validator_set_contract.abi,
         )
         contracts.append(contract)
 
@@ -154,7 +158,7 @@ def change_validators(contract: Contract) -> Tuple[List[bytes], int]:
     receipts = [
         contract.web3.eth.waitForTransactionReceipt(tx_hash) for tx_hash in tx_hashes
     ]
-    return validators, max(receipt.blockNumber for receipt in receipts)
+    return validators, max(receipt["blockNumber"] for receipt in receipts)
 
 
 def test_fetch_first_epoch(w3, validator_set_contract):
